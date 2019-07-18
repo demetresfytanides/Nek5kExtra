@@ -15,9 +15,12 @@ identification methods:
 
  'lambda2': Generates Lambda-2 vortex of Jeong & Hussein, JFM '95 [3] using the standard
 			nek5k routine 'lamdba2'
+			
        'q': Generates Q criterion vortex of Hunt, Wray & Moin, CTR-S88 '88 [4]
+       
    'delta': Generates Discriminant (DELTA) criterion vortex of
             Chong, Perry & Cantwell, Phys. Fluids '90 [5]
+	    
 'swirling': Generates Swirling Strength (lambda_ci^2) vortex of
             Zhou, Adrian, Balachandar and Kendall, JFM '99 [6]
 
