@@ -8,9 +8,9 @@ mode in which particles are periodicly released along a horizontal
 line segment upstream of a hemispherical roughness element [1,2].  
 
 ## Vortex Core Identification
-Currently, this set up illustrates the use of different vortex core identification
+This set up illustrates the use of different vortex core identification
 metholologies from the literature.
-This routine calculates the vortex core region using one of the following 
+This routine calculates the vortex core region using the following 
 identification methods:
 
 'lambda2': Generates Lambda-2 vortex of Jeong & Hussein, JFM '95 using the standard 
