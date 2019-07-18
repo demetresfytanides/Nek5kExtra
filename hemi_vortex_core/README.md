@@ -13,8 +13,8 @@ metholologies from the literature.
 This routine calculates the vortex core region using one of the following 
 identification methods:
 
-'lambda2': Generates Lambda-2 vortex of Jeong & Hussein, JFM '95 [3] using the standard 
-nek5k routine 'lamdba2'
+'lambda2': Generates Lambda-2 vortex of Jeong & Hussein, JFM '95 using the standard 
+nek5k routine 'lamdba2' [3]
 
 'q': Generates Q criterion vortex of Hunt, Wray & Moin, CTR-S88 '88 [4]
 
