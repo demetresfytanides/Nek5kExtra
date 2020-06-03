@@ -564,11 +564,11 @@ c-----------------------------------------------------------------------
 c  This routine calculates the vortex core region
 c  using one of the following identification methods
 c  vortex =
-c 'lambda2': Generates Lambda-2 vortex of Jeong & Hussein, JFM '95
-c       'q': Generates Q criterion vortex of Hunt, Wray & Moin, CTR-S88 '88
-c   'delta': Generates Discriminant (DELTA) criterion vortex of
+c 'lambda2': Generates Lambda-2 vortex by Jeong & Hussein, JFM '95
+c       'q': Generates Q criterion vortex by Hunt, Wray & Moin, CTR-S88 '88
+c   'delta': Generates Discriminant (DELTA) criterion vortex by
 c            Chong, Perry & Cantwell, Phys. Fluids '90
-c'swirling': Generates Swirling Strength (lambda_ci^2) vortex of
+c'swirling': Generates Swirling Strength (lambda_ci^2) vortex by
 c            Zhou, Adrian, Balachandar and Kendall, JFM '99
 c
       include 'SIZE'
@@ -598,7 +598,7 @@ c      Character(LEN = LEN(vortex)) vortex
 c---------------------------------------------------------
        subroutine compute_q(l2)
 c
-c     Generate Q criterion vortex of Hunt, Wray & Moin, CTR-S88 1988
+c     Generate Q criterion vortex by Hunt, Wray & Moin, CTR-S88 1988
 c     positive second invariant of velocity gradient tensor
 c
       include 'SIZE'
@@ -634,7 +634,7 @@ c
 cc---------------------------------------------------------
       subroutine compute_delta(l2)
 c
-c     Generate  Discriminant (DELTA) criterion vortex of 
+c     Generate  Discriminant (DELTA) criterion vortex by 
 c         Chong, Perry & Cantwell, Phys. Fluids 1990
 c     complex eigenvalues of velocity gradient tensor
 c
@@ -676,7 +676,7 @@ c
 c---------------------------------------------------------
        subroutine compute_swirling(l2)
 c
-c     Generate Swirling Strength criterion vortex of 
+c     Generate Swirling Strength criterion vortex by 
 c     Zhou, Adrian, Balachandar and Kendall, JFM 1999
 c
 c     imaginary part of complex eigenvalues of velocity gradient tensor
