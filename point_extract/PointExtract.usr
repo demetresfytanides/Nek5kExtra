@@ -2,7 +2,7 @@ C-----------------------------------------------------------------------
 C  nek5000 
 C  tool that extracts data and stores them in ASCII files.
 C  This way you avoid having gigantic text files, each slice in y
-C  is stores in a separate file. This becomes important when the
+C  is stored in a separate file. This becomes important when the
 C  grids become large.
 C  The routine requires a txt file named INPUT0000
 C  that includes a list of the files you want to post-process.
