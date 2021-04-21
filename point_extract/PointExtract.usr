@@ -21,7 +21,8 @@ C  The Chebyshev distibution has lyp points between BOTTOM_Y and TOP_Y.
 c  A uniform grid is used in the x- and z- direction.
 c  lxp: number of points in x-
 c  lzp: number of points z-
-c  npmax: reduntant for what you are doing.
+c  npmax: reduntant for what you are doing.i
+c  you also don't need NUMBER_ELEMENTS_X, _Y, _Z
 C-----------------------------------------------------------------------
 C  
 C  Dimitrios K. Fytanidis
@@ -30,28 +31,29 @@ C-----------------------------------------------------------------------
 C-----------------            Parameters:         ----------------------
 C
 c-----------------   number of elements lx, ly, lz----------------------
-#define NUMBER_ELEMENTS_X 188
-#define NUMBER_ELEMENTS_Y 49
-#define NUMBER_ELEMENTS_Z 94
+#define NUMBER_ELEMENTS_X 16
+#define NUMBER_ELEMENTS_Y 12
+#define NUMBER_ELEMENTS_Z 8
 
 c---------  number of Points lxp, lyp, lzp for the interpolation  ------
-#define lxp 1880
+#define lxp 160
 #define lyp 100
-#define lzp 940
-#define npmax 1880
+#define lzp 80
+#define npmax 160
 
 c--------------------   Dimesnions of the domain.   --------------------
 c--------------------    size in each direction:    --------------------
-c--------------------       Lx = [  0,160]          --------------------
-c--------------------       Ly = [  0, 50]          --------------------
-c--------------------       Lz = [-40, 40]          --------------------
-#define Lx 160.0
-#define Ly 50.0
-#define Lz 80.0
+c--------------------       Lx = [  0,2pi]          --------------------
+c--------------------       Ly = [  0,  1]          --------------------
+c--------------------       Lz = [  0, pi]          --------------------
+#define PI (4.*atan(1.))
+#define Lx (2.*PI)
+#define Ly 1.0
+#define Lz PI
 
 c-------------------     For the Chebychev distribution ----------------
-#define BOTTOM_Y 0.0001
-#define TOP_Y 50.0
+#define BOTTOM_Y 1.0
+#define TOP_Y 0.0
 
 c-----------------------------------------------------------------------
       subroutine uservp(ix,iy,iz,eg) ! set variable properties
@@ -282,7 +284,8 @@ c----- set uniform distribution in x and z ------
        ptsx(j)=ptsx(j-1)+dx
       enddo
 
-      ptsz(1) = dz/2.-lz11/2. !centered to 0
+      !ptsz(1) = dz/2.-lz11/2. !centered to 0
+      ptsz(1) = dz/2.
       do j=2,n3
        ptsz(j)=ptsz(j-1)+dz
       enddo
