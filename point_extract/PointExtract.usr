@@ -1,0 +1,402 @@
+C-----------------------------------------------------------------------
+C  nek5000 
+C  tool that extracts data and stores them in ASCII files.
+C  This way you avoid having gigantic text files, each slice in y
+C  is stores in a separate file. This becomes important when the
+C  grids become large.
+C  The routine requires a txt file named INPUT0000
+C  that includes a list of the files you want to post-process.
+C
+C  The name and the format for each output file is:
+C        XXXXSPECTYYYY  
+C  which stores the x,y,z,u,v,w,Pr data of the YYYY plane from
+c  the XXXX file.
+C   
+c     e.g.  
+c          0002SPECT0001
+c  includes the data extracted from the 1st y plane (defined by the user) 
+c  from the 2nd file inside the INPUT0000 file.
+c  A Chebyshev distribution is used to difine the different y planes.
+C  The Chebyshev distibution has lyp points between BOTTOM_Y and TOP_Y.
+c  A uniform grid is used in the x- and z- direction.
+c  lxp: number of points in x-
+c  lzp: number of points z-
+c  npmax: reduntant for what you are doing.
+C-----------------------------------------------------------------------
+C  
+C  Dimitrios K. Fytanidis
+C  fytanid2@illinois.edu
+C-----------------------------------------------------------------------
+C-----------------            Parameters:         ----------------------
+C
+c-----------------   number of elements lx, ly, lz----------------------
+#define NUMBER_ELEMENTS_X 188
+#define NUMBER_ELEMENTS_Y 49
+#define NUMBER_ELEMENTS_Z 94
+
+c---------  number of Points lxp, lyp, lzp for the interpolation  ------
+#define lxp 1880
+#define lyp 100
+#define lzp 940
+#define npmax 1880
+
+c--------------------   Dimesnions of the domain.   --------------------
+c--------------------    size in each direction:    --------------------
+c--------------------       Lx = [  0,160]          --------------------
+c--------------------       Ly = [  0, 50]          --------------------
+c--------------------       Lz = [-40, 40]          --------------------
+#define Lx 160.0
+#define Ly 50.0
+#define Lz 80.0
+
+c-------------------     For the Chebychev distribution ----------------
+#define BOTTOM_Y 0.0001
+#define TOP_Y 50.0
+
+c-----------------------------------------------------------------------
+      subroutine uservp(ix,iy,iz,eg) ! set variable properties
+      include 'SIZE'
+      include 'TOTAL'
+      include 'NEKUSE'
+
+      integer e,f,eg
+c     e = gllel(eg)
+      udiff  = 0.0
+      utrans = 0.0
+
+      return
+      end
+c-----------------------------------------------------------------------
+      subroutine userf(ix,iy,iz,eg) ! set acceleration term
+c
+c     Note: this is an acceleration term, NOT a force!
+c     Thus, ffx will subsequently be multiplied by rho(x,t).
+c
+      include 'SIZE'
+      include 'TOTAL'
+      include 'NEKUSE'
+      integer e,f,eg
+c     e = gllel(eg)
+      ffx=0
+      ffy=0
+      ffz=0
+      return
+      end
+c-----------------------------------------------------------------------
+      subroutine userq(ix,iy,iz,eg) ! set source term
+      include 'SIZE'
+      include 'TOTAL'
+      include 'NEKUSE'
+      integer e,f,eg
+c     e = gllel(eg)
+      qvol   = 0.0
+      source = 0.0
+      return
+      end
+c-----------------------------------------------------------------------
+      subroutine userbc(ix,iy,iz,f,eg) ! set up boundary conditions
+c     NOTE: This routine may or may not be called by every processor
+      include 'SIZE'
+      include 'TOTAL'
+      include 'NEKUSE'
+      integer e,f,eg
+      ux   = 0.0
+      uy   = 0.0
+      uz   = 0.0
+      temp = 0.0
+      return
+      end
+c-----------------------------------------------------------------------
+      subroutine useric(ix,iy,iz,eg) ! set up initial conditions
+      include 'SIZE'
+      include 'TOTAL'
+      include 'NEKUSE'
+      integer e,eg
+      ux   = 0.0
+      uy   = 0.0
+      uz   = 0.0
+      temp = 0.0
+      return
+      end
+c-----------------------------------------------------------------------
+      subroutine userchk()
+      include 'SIZE'
+      include 'TOTAL'
+      character*127 filename
+      integer ii
+      common /dummy/ phase, shear1
+      do i = 0,1,1
+      WRITE(filename,10)i
+   10 FORMAT(5HINPUT,I4.4)
+      phase = i
+!       call extract_dataSp(i)
+!      if (nid.eq.0 ) write(*,*)'END_extract'
+      call post_averager(filename,i)
+      if (nid.eq.0 ) write(*,*)'END_extract'
+
+      enddo
+       call exitt
+
+      return
+      end
+c-----------------------------------------------------------------------
+      subroutine usrdat()   ! This routine to modify element vertices
+      include 'SIZE'
+      include 'TOTAL'
+      return
+      end
+c---------------------------------------------------------------------
+      subroutine usrdat2()  ! This routine to modify mesh coordinates
+      include 'SIZE'
+      include 'TOTAL'
+
+      return
+      end
+c-----------------------------------------------------------
+      subroutine usrdat3()
+      include 'SIZE'
+      include 'TOTAL'
+      return
+      end
+c-----------------------------------------------------------
+      subroutine extract_dataSp(ii)
+      include 'SIZE'
+      include 'TOTAL'
+      integer idimhndl
+      common/ idimi/ idimhndl     
+      parameter (lt=lx1*ly1*lz1*lelt)
+      real xyz1(lxp),xyz2(lyp+10),xyz3(lzp)
+      logical ifverbose
+      real vxint(lxp*1*lzp) 
+      real vyint(lxp*1*lzp) 
+      real vzint(lxp*1*lzp) 
+      real pr2i(lxp*1*lzp) 
+      real rwk(lxp*1*lzp,ldim+1) !working array with reals
+      integer iwk(lxp*1*lzp,3)   !working array with integers
+      save    rwk, iwk
+      real xint(lxp*1*lzp), yint(lxp*1*lzp)
+      real zint(lxp*1*lzp) !working array
+      character*127 filename1
+      integer ii,a
+
+      n1 = lxp
+      n2 = lyp
+      n3 = lzp
+
+      call genpointsSp(xyz1,xyz2,xyz3)
+      call interp_setup(idimhndl,0.,0,nelt)     
+      lptlim=lxp*1*lzp
+      npt =lxp*1*lzp 
+      a=1
+      
+      do j=1,n2
+      a=1
+      do k=1,n3
+      do i=1,n1
+      xint(a)=xyz1(i)
+      yint(a)=xyz2(j)
+      zint(a)=xyz3(k)
+      a=a+1
+      enddo
+      enddo
+
+       if (nid.eq.0 ) then
+       write(*,*)'starting interpolation'
+       write(*,*)'lptlim = ',lptlim
+       write(*,*)'npt = ',npt,a-1
+      !a=1
+       endif
+	
+      if (nid.ne.0) npt = 1
+      if (nid.eq.0 ) write(*,*)'interpolating vx'
+      call interp_nfld(vxint,vx,1,xint,yint,
+     $ zint,npt,iwk,rwk,lptlim,.true.,
+     $                 idimhndl)
+      if (nid.eq.0 ) write(*,*)'interpolating vy'
+      call interp_nfld(vyint,vy,1,int,yint,
+     $ zint,npt,iwk,rwk,lptlim,.false.,
+     $                 idimhndl)
+      if (nid.eq.0 ) write(*,*)'interpolating vz'
+      call interp_nfld(vzint,vz,1,int,yint,
+     $ zint,npt,iwk,rwk,lptlim,.false.,
+     $                 idimhndl)   
+      if (nid.eq.0 ) write(*,*)'interpolating Pr' 
+      call interp_nfld(pr2i,pr,1,int,yint,
+     $ zint,npt,iwk,rwk,lptlim,.false.,
+     $                 idimhndl)     
+
+      if (nid.eq.0 ) write(*,*)'writing data'
+      if (nid.eq.0 ) then
+
+      WRITE(filename1,11)ii,j
+   11 FORMAT(I4.4,5HSPECT,I4.4)
+
+      !filename1=filename1+'.dat'
+      write(*,*)filename1
+      open(unit=57,file=filename1,
+     $ Access = 'append')
+
+      do i=1,npt
+        write(57,4) xint(i), yint(i), zint(i),
+     $ vxint(i),vyint(i),vzint(i), pr2i(i)
+   4    format(7e17.9I6)
+       enddo
+
+      close(57)
+      endif
+
+      enddo
+
+      return
+      end
+c-----------------------------------------------------------
+      subroutine genpointsSp(ptsx,ptsy,ptsz)
+      include 'SIZE'
+      include 'TOTAL'
+      real ptsx(lxp)
+      real ptsy(lyp)
+      real ptsz(lzp)
+      real dum,rad,dua, xa,xb, lz11
+      integer n1, n3, nval
+      integer i,j,k
+
+      n1 = lxp
+      n3 = lzp
+      n2 = lyp
+      xa=BOTTOM_Y
+      xb=TOP_Y
+
+      lz11=Lz
+
+      dx=Lx/lxp
+      dy=Ly/lyp !no needed
+      dz=Lz/lzp
+
+c----- set Chebychev distribution in y ----------      
+      call genchebK(ptsy,n2,xa,xb)
+      !write(*,*) ptsy
+
+c----- set uniform distribution in x and z ------   
+      ptsx(1) = dx/2.
+      do j=2,n1
+       ptsx(j)=ptsx(j-1)+dx
+      enddo
+
+      ptsz(1) = dz/2.-lz11/2. !centered to 0
+      do j=2,n3
+       ptsz(j)=ptsz(j-1)+dz
+      enddo
+      
+c     write(*,*) 'we are done!'
+      return
+      end
+c-----------------------------------------------------------
+      subroutine genchebK(pts,n1,xa,xb)
+      include 'SIZE'
+      include 'TOTAL'
+      real pts(lyp)
+      real pts1(lyp)
+
+      real dum,rad,dua
+      integer n1, nval
+      integer i,j,k
+
+      dua=xb-xa
+      pi = 4*atan(1.)
+      nval = 2*n1
+      do i=n1+1,2*n1
+       dum = (i-1)*pi/(nval-1)
+       pts1(i-n1) = -cos(dum)
+      enddo
+
+      do i=1,n1,1
+        pts(i)=-(pts1(i)-pts1(1))/(pts1(n1)-pts1(1))*dua+dua
+      enddo
+
+      return
+      end
+c--------------------------------------------------------------
+      subroutine post_averager(fname127,ik) !simple extraction 
+c     subroutine extracts data and stores them
+c     in ascii files  named XXXXSPECTYYYY
+c     XXXX: file number
+c     YYYY: y point number
+c     e.g.  
+c          0002SPECT0001
+c     includes the data extrapted in the 1st y plane from 
+c     the 2nd file inside the INPUT0000 txt file.
+c     format:
+c     x, y, z, u, v, w, pr
+
+      include 'SIZE'
+      include 'TOTAL'
+      include 'ZPER'
+      character*127 fname127
+      character*1   f1(127)
+      integer ik,ij
+      parameter (lt=lx1*ly1*lz1*lelt)
+      common /dummy/ phase, shear1
+
+      integer xgs_avg_hndl
+      save    xgs_avg_hndl
+      data    xgs_avg_hndl / 0 /
+      integer zgs_avg_hndl
+      save    zgs_avg_hndl
+      data    zgs_avg_hndl / 0 /
+
+      character*1 s1(127)
+      equivalence (s1,initc) ! equivalence to initial condition
+
+
+      if (nid.eq.0) then
+         ib=indx1(fname127,' ',1)-1
+         call chcopy(f1,fname127,ib)
+         write(6,2) (f1(k),k=1,ib)
+    2    format('Open file: ',127a1)
+      endif
+
+      ierr = 0
+      if (nid.eq.0) open(77,file=fname127,status='old',err=199)
+      ierr = iglmax(ierr,1)
+      if (ierr.gt.0) goto 199
+      n = lx1*ly1*lz1*nelt
+      n2= lx2*ly2*lz2*nelt
+
+      ij = 1
+      icount = 0
+      do ipass=1,9999999
+
+         call blank(initc,127)
+         initc(1) = 'done '
+         if (nid.eq.0) read(77,127,end=998) initc(1)
+  998    call bcast(initc,127)
+  127    format(a127)
+
+         iblank = indx1(initc,' ',1)-1
+         if (nio.eq.0) write(6,1) ipass,(s1(k),k=1,iblank)
+    1    format(i8,'Reading: ',127a1)
+
+         if (indx1(initc,'done ',5).eq.0) then ! We're not done
+
+            nfiles = 1
+            call restart(nfiles)  ! Note -- time is reset.
+            call extract_dataSp(ij)
+	        ij=ij+1		
+            if (nid.eq.0 ) write(*,*)'END_extract'
+         else
+            goto 999
+         endif
+      enddo
+
+  999 continue  ! clean up averages
+
+      return
+  199 continue ! exception handle for file not found
+      ierr = 1
+      if (nid.eq.0) ierr = iglmax(ierr,1)
+      call exitti('Error. I did not find list file.$',ierr)
+      end
+
+c----------------------------------------------------------------------
+
+
