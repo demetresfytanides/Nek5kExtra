@@ -36,7 +36,7 @@ You also don't need NUMBER_ELEMENTS_X, _Y, _Z.
 
 The tutorial is based on the standard turbChannel tutorial.
 
-Data are extracted only for the top halg of the geometry (between 0 and 1).
+Data is extracted only for the top halg of the geometry (between 0 and 1).
 
 ## LES of a turbulent channel flow.
 
