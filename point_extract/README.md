@@ -23,7 +23,7 @@ lzp: number of points z-
 npmax: reduntant for what you are doing.
 you also don't need NUMBER_ELEMENTS_X, _Y, _Z.
 
-##LES of a turbulent channel flow.
+## LES of a turbulent channel flow.
 
 HiOCFD5 Testcase: WS2 / Resolution Coarse (ID:MS3)
 LES of a turbulent channel flow with Re_tau=550
