@@ -1,6 +1,6 @@
 # Extract data of x,y,z,u,v,w,p on planes that follow a Chebyshev distribution
 ## Information
-The tool that extracts data and stores them in ASCII files.
+A tool that extracts data and stores them in ASCII files.
 This way you avoid having gigantic text files, each slice in y
 is stored in a separate file. This becomes important when the 
 grids become large.
