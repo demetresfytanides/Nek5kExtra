@@ -33,7 +33,7 @@ d. run the code
 
 >nekmpi case_name np
 
-##Workflow & files needed for a 2-domain/ 2-session NEKNEK simulation
+## Workflow & files needed for a 2-domain/ 2-session NEKNEK simulation
 
 i. files:
 a. 1  SIZE file
