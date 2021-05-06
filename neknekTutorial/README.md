@@ -4,7 +4,7 @@ The 3D periodic hill example is modified to be solved as:
 1. a mono-domain/1-session nek5000 simulaiton
 2. a 2-domain/2-session neknek simulation
 
-##Workflow & files needed for a mono-domain/ single session NEK5000 simulation
+## Workflow & files needed for a mono-domain/ single session NEK5000 simulation
 
 i. files:
 a. 1  SIZE file
@@ -16,13 +16,20 @@ f. 1 *.usr file
 
 ii. steps:
 generate rea or re2 using genbox
+
 a. >genbox
   (…)
+
 b. generate map files using genmap
+
 >genmap  (…)
+
 c. compile the code
+
 >makenek case_name(*.usr)
+
 d. run the code
+
 >nekmpi case_name np
 
 ##Workflow & files needed for a 2-domain/ 2-session NEKNEK simulation
@@ -36,17 +43,27 @@ e. 2 *.re2 (optional for large problems) file
 f. 1 *.usr file
 
 ii. steps:
+
 a. generate rea or re2 using genbox for each domain
+
 >genbox
-  (…) 1st domainA
+(…) 1st domainA
+
 >genbox
   (…) 2nd domainB
+
 b. generate map files using genmap dor each domain
->genma  (…) 1st domainA
+
+>genmap  (…) 1st domainA
+
 >genmap  (…) 2nd domainB
+
 c. compile the code
+
 >makenek case_name(*.usr)
+
 d. run the code
+
 >neknek domainA domainB np np
 
 
