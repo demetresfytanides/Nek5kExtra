@@ -1,0 +1,38 @@
+#
+# nek parameter file
+#
+[GENERAL] 
+#startFrom = 
+stopAt = endTime #endTime numSteps
+endTime = 200.0
+numSteps =500
+
+dt = 5e-03
+timeStepper = bdf3 #char #steady
+variableDt = yes
+targetCFL = 0.4
+
+writeControl = runTime #runTime timeStep
+writeInterval = 0.1
+
+dealiasing = yes
+filtering = hpfrt #hpfrt, none, explicit
+filterWeight = 10.0
+filterCutoffRatio = 0.9
+
+[PROBLEMTYPE]
+equation = incompNS
+stressFormulation = no
+variableProperties = no
+
+[PRESSURE]
+preconditioner = semg_xxt
+residualTol = 1e-5
+residualProj = yes
+
+[VELOCITY]
+residualTol = 1e-8
+residualProj = yes
+density = 1.0
+viscosity = -100
+advection = yes
