@@ -15,9 +15,10 @@ e. 1 *.re2 (optional for large problems) file
 f. 1 *.usr file
 
 ii. steps:
-generate rea or re2 using genbox
 
-a. >genbox
+a. generate rea or re2 using genbox
+
+>genbox
   (…)
 
 b. generate map files using genmap
