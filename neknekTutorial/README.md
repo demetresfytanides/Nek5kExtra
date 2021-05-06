@@ -22,22 +22,23 @@ i. files:
 
 ii. steps:
 
-a. generate rea or re2 using genbox
+    a. generate rea or re2 using genbox
 
->genbox
-  (…)
+        >genbox
+        (…)
 
-b. generate map files using genmap
+    b. generate map files using genmap
 
->genmap  (…)
+        >genmap
+        (…)
 
-c. compile the code
+    c. compile the code
 
->makenek case_name(*.usr)
+        >makenek case_name(*.usr)
 
-d. run the code
+    d. run the code
 
->nekmpi case_name np
+        >nekmpi case_name np
 
 ## Workflow & files needed for a 2-domain/ 2-session NEKNEK simulation
 
