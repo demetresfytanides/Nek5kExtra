@@ -8,17 +8,17 @@ The 3D periodic hill example is modified to be solved as:
 
 i. files:
 
-  a. 1  SIZE file
+    a. 1  SIZE file
   
-  b. 1 *box file (optional. used in case genbox is used for the grid generation)
+    b. 1 *box file (optional. used in case genbox is used for the grid generation)
 
-  c. 1 *.rea (or *.par) file
+    c. 1 *.rea (or *.par) file
 
-  d. 1 *.map (or *.ma2) file
+    d. 1 *.map (or *.ma2) file
 
-  e. 1 *.re2 (optional for large problems) file
+    e. 1 *.re2 (optional for large problems) file
 
-  f. 1 *.usr file
+    f. 1 *.usr file
 
 ii. steps:
 
@@ -43,41 +43,41 @@ d. run the code
 
 i. files:
 
-  a. 1  SIZE file
+    a. 1  SIZE file
 
-  b. 2 *box files (optional. used in case genbox is used for the grid generation)
+    b. 2 *box files (optional. used in case genbox is used for the grid generation)
 
-  c. 2 *.rea (or *.par) file
+    c. 2 *.rea (or *.par) file
+  
+    d. 2 *.map (or *.ma2) file
 
-  d. 2 *.map (or *.ma2) file
+    e. 2 *.re2 (optional for large problems) file
 
-  e. 2 *.re2 (optional for large problems) file
-
-  f. 1 *.usr file
+    f. 1 *.usr file
 
 ii. steps:
 
-a. generate rea or re2 using genbox for each domain
+    a. generate rea or re2 using genbox for each domain
 
->genbox
-(…) 1st domainA
+      >genbox
+      (…) 1st domainA
 
->genbox
-  (…) 2nd domainB
+      >genbox
+      (…) 2nd domainB
 
-b. generate map files using genmap dor each domain
+    b. generate map files using genmap dor each domain
 
->genmap  (…) 1st domainA
+      >genmap  (…) 1st domainA
 
->genmap  (…) 2nd domainB
+      >genmap  (…) 2nd domainB
 
-c. compile the code
+    c. compile the code
 
->makenek case_name(*.usr)
+      >makenek case_name(*.usr)
 
-d. run the code
+    d. run the code
 
->neknek domainA domainB np np
+      >neknek domainA domainB np np
 
 
 
