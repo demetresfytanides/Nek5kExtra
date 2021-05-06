@@ -7,12 +7,18 @@ The 3D periodic hill example is modified to be solved as:
 ## Workflow & files needed for a mono-domain/ single session NEK5000 simulation
 
 i. files:
-a. 1  SIZE file
-b. 1 *box file (optional. used in case genbox is used for the grid generation)
-c. 1 *.rea (or *.par) file
-d. 1 *.map (or *.ma2) file
-e. 1 *.re2 (optional for large problems) file
-f. 1 *.usr file
+
+  a. 1  SIZE file
+
+  b. 1 *box file (optional. used in case genbox is used for the grid generation)
+
+  c. 1 *.rea (or *.par) file
+
+  d. 1 *.map (or *.ma2) file
+
+  e. 1 *.re2 (optional for large problems) file
+
+  f. 1 *.usr file
 
 ii. steps:
 
@@ -36,12 +42,18 @@ d. run the code
 ## Workflow & files needed for a 2-domain/ 2-session NEKNEK simulation
 
 i. files:
-a. 1  SIZE file
-b. 2 *box files (optional. used in case genbox is used for the grid generation)
-c. 2 *.rea (or *.par) file
-d. 2 *.map (or *.ma2) file
-e. 2 *.re2 (optional for large problems) file
-f. 1 *.usr file
+
+  a. 1  SIZE file
+
+  b. 2 *box files (optional. used in case genbox is used for the grid generation)
+
+  c. 2 *.rea (or *.par) file
+
+  d. 2 *.map (or *.ma2) file
+
+  e. 2 *.re2 (optional for large problems) file
+
+  f. 1 *.usr file
 
 ii. steps:
 
