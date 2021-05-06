@@ -9,6 +9,7 @@ The 3D periodic hill example is modified to be solved as:
 i. files:
 
   a. 1  SIZE file
+  
   b. 1 *box file (optional. used in case genbox is used for the grid generation)
 
   c. 1 *.rea (or *.par) file
