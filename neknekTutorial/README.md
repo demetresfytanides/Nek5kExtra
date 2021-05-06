@@ -97,9 +97,7 @@ HOW TO RUN THE CASE
 
 REMARKS:
 - phill.re2 is a rectangular channel
-- the geometric parameters of the hill are defined in userdat2
-- it is assumed that the Reynolds number is based on the average velocity
-  over the inlet plane
+- a constant pressure gradient is used to drive the flow
 
 
 ## 3D periodic hill example (2-domain)
