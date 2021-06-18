@@ -1,0 +1,25 @@
+[GENERAL]
+variableDT = yes
+dt = 6.5E-3
+targetcfl = 0.5
+writeinterval = 10
+numsteps = 5000
+
+
+#filtering = explicit
+#filterWeight = 0.1
+#ifilterCutoffRatio = 0.9
+
+
+
+filtering = hpfrt
+filterWeight = 10
+filterCutoffRatio = 0.9 
+
+[VELOCITY]
+density = 1.205
+viscosity = 1.8E-5
+residualTol = 1e-8
+
+[PRESSURE]
+residualTol = 1e-8

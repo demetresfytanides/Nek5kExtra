@@ -1,0 +1,461 @@
+#include "PPICLF_USER.h"
+#include "PPICLF_STD.h"
+c-----------------------------------------------------------------------
+      subroutine uservp (ix,iy,iz,eg)
+      include 'SIZE'
+      include 'TOTAL'
+      include 'NEKUSE'
+      integer e,eg
+
+      e = gllel(eg)
+
+      udiff=0.0
+      utrans=0.
+
+      return
+      end
+c-----------------------------------------------------------------------
+      subroutine userf  (ix,iy,iz,ieg)
+      include 'SIZE'
+      include 'TOTAL'
+      include 'NEKUSE'
+
+      ie = gllel(ieg)
+
+      ! First couple hydrodynamic force
+      call ppiclf_solve_GetProFldIJKEF(ix,iy,iz,ie,PPICLF_P_JFX,ffx)
+      call ppiclf_solve_GetProFldIJKEF(ix,iy,iz,ie,PPICLF_P_JFY,ffy)
+      call ppiclf_solve_GetProFldIJKEF(ix,iy,iz,ie,PPICLF_P_JFZ,ffz) !DKF
+
+      call ppiclf_solve_GetProFldIJKEF(ix,iy,iz,ie,PPICLF_P_JPHIP,rphip)
+      
+      ! Make it an acceleration
+      rdum = 1./vtrans(ix,iy,iz,ie,1)
+      rdum = rdum/(1.-rphip)
+      
+      !decoupled particles
+      ffx = 0.!ffx*rdum
+      ffy = 0.!ffy*rdum
+      ffz = 0.!ffz*rdum
+
+      return
+      end
+c-----------------------------------------------------------------------
+      subroutine userq  (ix,iy,iz,eg)
+      include 'SIZE'
+      include 'TOTAL'
+      include 'NEKUSE'
+      integer e,eg
+
+      qvol   = 0.0
+
+      return
+      end
+c-----------------------------------------------------------------------
+      subroutine userchk
+      include 'SIZE'
+      include 'TOTAL'
+
+      real rphip(PPICLF_LEX,PPICLF_LEY,PPICLF_LEZ,lelt)
+
+      real*8 y(PPICLF_LRS    , PPICLF_LPART) ! Normal ordering
+      real*8 rprop(PPICLF_LRP, PPICLF_LPART) ! Normal ordering
+      integer*4 npart
+
+      do ie=1,nelt
+      do iz=1,PPICLF_LEZ
+      do iy=1,PPICLF_LEY
+      do ix=1,PPICLF_LEX
+         call ppiclf_solve_GetProFldIJKEF(ix,iy,iz,ie
+     >                              ,PPICLF_P_JPHIP,rphip(ix,iy,iz,ie))
+      enddo
+      enddo
+      enddo
+      enddo
+
+      ! Set divergence equal to -1/phi_f * D/Dt( phi_f )
+!      call qtl_pvol(usrdiv,rphip)
+!     ! Set divergence at outflow elements so that characteristics go out
+!      call fill_div(usrdiv)  
+
+      ! Inject particles this many steps
+      inject_freq = 200
+      ! But wait for this many steps to start
+      inject_start = 0
+!     inject_start = 1
+      if ( ( mod(istep,inject_freq) .eq. 0) .and. 
+     >     ( istep .ge. inject_start      )       ) then
+
+         ! Place particles specified as user
+         call my_place_particle(npart,y,rprop)
+
+         ! Add them into solver
+         call ppiclf_solve_AddParticles(npart,y,rprop)
+
+      endif
+
+      ! Interpolate fields to particle positions
+      call ppiclf_solve_InterpFieldUser(PPICLF_R_JPHIP
+     >                          ,rphip(1,1,1,1))
+      call ppiclf_solve_InterpFieldUser(PPICLF_R_JUX
+     >                          ,vx(1,1,1,1))
+      call ppiclf_solve_InterpFieldUser(PPICLF_R_JUY
+     >                          ,vy(1,1,1,1))
+      call ppiclf_solve_InterpFieldUser(PPICLF_R_JUY
+     >                          ,vy(1,1,1,1)) !DKF
+
+
+
+      ! Integrate particles
+      call ppiclf_solve_IntegrateParticle(istep ,
+     >                                    iostep,
+     >                                    dt    ,
+     >                                    time  )
+
+      if (mod(istep,iostep) .eq. 0)
+     >   call outpost2(rphip
+     >                ,rphip
+     >                ,rphip
+     >                ,rphip
+     >                ,rphip,1,'ptw')
+
+      return
+      end
+c-----------------------------------------------------------------------
+      subroutine userbc (ix,iy,iz,iside,eg)
+      include 'SIZE'
+      include 'TSTEP'
+      include 'NEKUSE'
+      include 'INPUT'
+      include 'GEOM' 
+
+      ux = 0.0
+      uy = 0.0
+      if ((abs(x) .le. 0.012).and.(abs(z) .le. 0.012))  uy = 2.0
+      uz = 0.0
+    
+
+      return
+      end
+c-----------------------------------------------------------------------
+      subroutine useric (ix,iy,iz,eg)
+      include 'SIZE'
+      include 'TOTAL'
+      include 'NEKUSE'
+      integer e,eg, eqnum
+
+      ux = 0.0
+      uy = 0.0
+      uz = 0.0
+
+      return
+      end
+c-----------------------------------------------------------------------
+      subroutine usrdat
+      include 'SIZE'
+      include 'TOTAL'
+
+      return
+      end
+c-----------------------------------------------------------------------
+      subroutine usrdat2
+      include 'SIZE'
+      include 'TOTAL'
+
+      real*8 ksp,erest
+      common /ucollision/ ksp,erest
+      data ksp   /10.0/ ! note: this limits dt, whcih we explicity set in .par file
+      data erest /0.8/
+
+      common /nekmpi/ mid,mp,nekcomm,nekgroup,nekreal
+
+      real*8 y(PPICLF_LRS    , PPICLF_LPART) ! Normal ordering
+      real*8 rprop(PPICLF_LRP, PPICLF_LPART) ! Normal ordering
+
+      integer*4 imethod,iendian,npart
+
+      real*8 dp
+      common /particle_dp/ dp
+
+      ! Pass to library to Init MPI
+      call ppiclf_comm_InitMPI(nekcomm,
+     >                         nid    , ! nid already defined in Nek5000
+     >                         np     ) ! np already defined in Nek5000
+
+      ! Place particles
+      npart = 0
+      dp    = 1.2E-3
+
+      imethod = 1
+      iendian = 0
+!     ndim    = 2 ! ndim already defined in Nek5000
+      call ppiclf_solve_InitParticle(imethod   ,
+     >                               ndim      ,
+     >                               iendian   ,
+     >                               npart     ,
+     >                               y(1,1)    ,
+     >                               rprop(1,1))
+
+      ! Specify Gaussian filter
+      call ppiclf_solve_InitGaussianFilter(2.0*dp,1E-3,1)
+
+      ! Specify Overlap Mesh
+      call ppiclf_comm_InitOverlapMesh(nelt,lx1,ly1,lz1,xm1,ym1,zm1)
+
+      ! Specify neighbor bin size
+      call ppiclf_solve_InitNeighborBin(dp)
+
+      ! Add a bottom wall boundary
+      call ppiclf_solve_InitWall( 
+     >                 (/-0.022,0.0, -0.022/),
+     >                 (/ 0.022,0.0, -0.022/),
+     >                 (/ 0.022,0.0, 0.022/))
+    
+      ! Add a bottom wall boundary  DKF
+      call ppiclf_solve_InitWall( 
+     >                 (/-0.022,0.0, 0.022/),
+     >                 (/0.022,0.0, 0.022/),
+     >                 (/-0.022,0.0, -0.022/))
+      
+
+
+      ! Set left and right boundaries to periodic
+      call ppiclf_solve_InitPeriodicX(-0.022,0.022)
+
+      call ppiclf_solve_InitPeriodicZ(-0.022,0.022) !DKF
+
+
+
+      return
+      end
+!-----------------------------------------------------------------------
+      subroutine usrdat3
+      return
+      end
+c-----------------------------------------------------------------------
+      subroutine fill_div(div)
+c
+c     Fill the domain with a nontrivial divergence, where desired.
+c
+c
+      include 'SIZE'
+      include 'TOTAL'
+c
+      integer icalld
+      save    icalld
+      data    icalld  /0/
+c
+      common /cvflow_d/ dist(lx2,ly2,lz2,lelt),dmax
+      common /cvflow_l/ ifdivf
+      logical ifdivf
+c
+      real div(lx2,ly2,lz2,lelv)
+c
+      ntot2 = nx2*ny2*nz2*nelv
+c     call rzero(div,ntot2)
+      if (ifdivf) return
+c
+      if (icalld.eq.0) then
+         icalld = 1
+         call set_outflow_dist
+      endif
+      dmax2 = dmax*dmax
+c
+      call get_div_const(cdiv)
+c
+      nd    = 0
+      do i=1,ntot2
+         dd = dist(i,1,1,1)*dist(i,1,1,1)
+         dd = min(dmax2,dd)
+         if (dist(i,1,1,1).ne.0) div(i,1,1,1) = cdiv*(1-dd/dmax2)
+         if (dist(i,1,1,1).ne.0) nd = nd+1
+      enddo
+      dsmin = glmin(dist,ntot2) 
+      dsmax = glmax(dist,ntot2) 
+      dvmin = glmin(div,ntot2) 
+      dvmax = glmax(div,ntot2) 
+      xd    = nd
+      xd    = glsum(xd,1)
+      nd    = xd
+      if(nid.eq.0)write(6,1) istep,nd,dvmin,dvmax,dsmin,dsmax,cdiv,dmax2
+    1 format(2i9,1p6e11.3,'divmnmx')
+    2 format(2i9,1p2e11.3,'divdstm')
+c
+      return
+      end
+c-----------------------------------------------------------------------
+      subroutine set_outflow_dist
+c
+c     Compute projected normal distance from outflow
+c
+      include 'SIZE'
+      include 'TOTAL'
+c
+      common /cvflow_d/ dist(lx2,ly2,lz2,lelt),dmax
+c
+      integer e,f
+c
+c
+      nxyz2 = nx2*ny2*nz2
+      ntot2 = nx2*ny2*nz2*nelv
+      ntot1 = nx1*ny1*nz1*nelv
+c
+      call rzero(dist,ntot2)
+      davg = 0.
+      wavg = 0.
+c
+      zmax = glmax(ym1,ntot1)
+c
+      do e=1,nelv
+c       write(6,*) 'any', cbc(3,e,1)
+         if (cbc(3,e,1).eq.'O  ') then  ! Outflow at y+
+            do k=1,nxyz2
+               dist(k,1,1,e) = zmax-ym1(k,1,1,e)
+               davg = davg+dist(k,1,1,e)
+               wavg = wavg+1.0
+            enddo
+         endif
+      enddo
+      dmax = glmax(dist,ntot2)
+      davg = glsum(davg,1)
+      wavg = glsum(wavg,1)
+      if (wavg.gt.0) davg = davg/wavg
+      if (nid.eq.0) write(6,1) dmax,davg,wavg
+    1 format('div: davg:',1p3e12.4)
+      dmax = 0.5*(dmax+davg)
+c
+      return
+      end
+c-----------------------------------------------------------------------
+      subroutine get_div_const(cdiv)
+c
+c     Get constant multiplier for divergence
+c
+      include 'SIZE'
+      include 'TOTAL'
+c
+      common /cvflow_d/ dist(lx2,ly2,lz2,lelt),dmax
+      real flx(0:2)
+c
+      integer e,f
+
+      vnmo_desired  = 2.
+
+      cdivt         = 1.5*vnmo_desired/dmax
+      cdiv          = max(0.,cdivt)       ! No contraction!
+
+      if (nid.eq.0) write(6,1) istep,time,vnmo,dmax,cdiv,cdivt
+    1 format(i9,1p5e13.5,'  cdiv')
+
+      return
+      end
+c-----------------------------------------------------------------------
+      subroutine my_place_particle(npart,y,rprop)
+      include 'SIZE'
+      include 'TOTAL'
+!
+      integer*4 npart
+      real*8 y(*) 
+      real*8 rprop(*) 
+!
+      real*8 rdp,rhop,rlx,rrx,ry
+      real*8 dp
+      common /particle_dp/ dp
+!
+      ! Set initial conditions and parameters for particles
+      rhop    = 10.0D0
+      rdp     = 1.01*dp ! extra threshold when initially placed
+      rlx     = -0.01
+      rrx     =  0.01
+      rlz     = -0.01
+      rrz     =  0.01
+      ry      =  0.000+rdp/2.0
+      npart_d = int((rrx-rlx)/rdp)/2.+1
+      npart   = 0
+
+      if (nid .eq. 0) then
+         npart = npart_d*npart_d
+         ii = 0
+         do k = 1, npart_d
+         do i=0,npart_d-1
+            j = PPICLF_LRS*((ii))
+            y(j+PPICLF_JX)  = rlx + (rrx-rlx)/npart_d*(i)
+            y(j+PPICLF_JY)  = ry
+            y(j+PPICLF_JZ)  = rlz + (rrz-rlz)/npart_d*(k-1) !DKF
+        !if(nid.eq.0) write(*,*)"k,i=",k,i,ii,npart, npart_d
+
+        !if(nid.eq.0) write(*,*)"X,Y,Z=", y(j+PPICLF_JX), y(j+PPICLF_JZ) 
+            y(j+PPICLF_JVX) = 0.0d0
+            y(j+PPICLF_JVY) = 0.0d0
+            y(j+PPICLF_JVZ) = 0.0d0 !DKF
+            
+   
+            j = PPICLF_LRP*(ii)
+            rprop(j+PPICLF_R_JRHOP) = rhop
+            rprop(j+PPICLF_R_JDP)   = dp
+            rprop(j+PPICLF_R_JVOLP) = pi/6.0D0*dp**3
+            ii = ii +1
+         enddo
+         enddo
+      endif
+
+      end
+c-----------------------------------------------------------------------
+      subroutine qtl_pvol(divin,phipin)
+c
+c     Computes modified divergence constraint for multiphase dense
+c     incompressible flow
+c
+      include 'SIZE'
+      include 'TOTAL'
+
+      common /phig_qtl_blk/ phig_last
+      real phig_last(lx1,ly1,lz1,lelt)
+
+      real divin(lx2,ly2,lz2,lelv), phipin(lx1,ly1,lz1,lelt)
+
+      COMMON /SCRNS/ ur(lx1,ly1,lz1,lelt)
+     >              ,us(lx1,ly1,lz1,lelt)
+     >              ,ut(lx1,ly1,lz1,lelt)
+     >              ,phigin(lx1,ly1,lz1,lelt)
+     >              ,phig_qtl(lx1,ly1,lz1,lelt)
+     >              ,grad_dot(lx1,ly1,lz1,lelt)
+
+      integer icalld
+      save    icalld
+      data    icalld  /-1/
+
+      icalld = icalld + 1
+      nxyze = lx1*ly1*lz1*lelt
+
+      rdt_in = 1./dt
+
+      call rzero(phig_qtl,nxyze)
+
+      if (icalld .eq. 0) then
+         call rone(phig_last,nxyze)
+         call sub2(phig_last,phipin,nxyze)
+      endif
+
+      call rone(phigin,nxyze)
+      call sub2(phigin,phipin,nxyze)
+      
+c     if (icalld .lt. 5) goto 123
+
+      call gradm1(ur,us,ut,phigin)
+      call sub3(phig_qtl,phigin,phig_last,nxyze)
+      call cmult(phig_qtl,rdt_in,nxyze)
+      call vdot3(grad_dot,vx,vy,vz,ur,us,ut,nxyze)
+      call add2(phig_qtl,grad_dot,nxyze)
+      call invcol2(phig_qtl,phigin,nxyze)
+      call chsign(phig_qtl,nxyze)
+
+      call copy(phig_last,phigin,nxyze)
+
+      do ie=1,nelt
+         call map12(divin(1,1,1,ie),phig_qtl(1,1,1,ie),ie)
+      enddo
+
+      return
+      end
+!-----------------------------------------------------------------------
