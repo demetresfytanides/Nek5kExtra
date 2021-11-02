@@ -1,0 +1,34 @@
+  ***** NO THERMAL BOUNDARY CONDITIONS *****
+           0  PRESOLVE/RESTART OPTIONS  *****
+           7          INITIAL CONDITIONS *****
+C Default                                                                       
+C Default                                                                       
+C Default                                                                       
+C Default                                                                       
+C Default                                                                       
+C Default                                                                       
+C Default                                                                       
+  ***** DRIVE FORCE DATA ***** BODY FORCE, FLOW, Q
+           4                  Lines of Drive force data follow
+C                                                                               
+C                                                                               
+C                                                                               
+C                                                                               
+  ***** Variable Property Data ***** Overrrides Parameter data.
+           1  Lines follow.
+           0  PACKETS OF DATA FOLLOW
+  ***** HISTORY AND INTEGRAL DATA ***** 
+           0    POINTS.  Hcode, I,J,H,IEL
+  ***** OUTPUT FIELD SPECIFICATION *****
+           6  SPECIFICATIONS FOLLOW
+ T       COORDINATES
+ T       VELOCITY
+ T       PRESSURE
+ F       TEMPERATURE
+ F       TEMPERATURE GRADIENT
+           0       PASSIVE SCALARS
+  ***** OBJECT SPECIFICATION *****
+       0 Surface Objects 
+       0 Volume  Objects 
+       0 Edge    Objects 
+       0 Point   Objects 

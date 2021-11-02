@@ -1,0 +1,878 @@
+c-----------------------------------------------------------------------
+      subroutine uservp (ix,iy,iz,eg)
+      include 'SIZE'
+      include 'TOTAL'
+      include 'NEKUSE'
+
+      integer e,f,eg
+c     e = gllel(eg)
+
+      udiff =0.
+      utrans=0.
+      return
+      end
+c-----------------------------------------------------------------------
+      subroutine userf  (ix,iy,iz,eg)
+      include 'SIZE'
+      include 'TOTAL'
+      include 'NEKUSE'
+
+      integer e,f,eg
+c     e = gllel(eg)
+
+
+c     Note: this is an acceleration term, NOT a force!
+c     Thus, ffx will subsequently be multiplied by rho(x,t).
+
+
+      ffx = 0.0
+      ffy = 0.0
+      ffz = 0.0
+
+      return
+      end
+c-----------------------------------------------------------------------
+      subroutine userq  (ix,iy,iz,eg)
+      include 'SIZE'
+      include 'TOTAL'
+      include 'NEKUSE'
+
+      integer e,f,eg
+c     e = gllel(eg)
+
+      qvol   = 0.0
+
+      return
+      end
+c-----------------------------------------------------------------------
+      subroutine userchk
+      include 'SIZE'
+      include 'TOTAL'
+
+      return
+      end
+c-----------------------------------------------------------------------
+      subroutine userbc (ix,iy,iz,iside,eg)
+      include 'SIZE'
+      include 'TOTAL'
+      include 'NEKUSE'
+
+      common /cvelbc/ uin(lx1,ly1,lz1,lelv)
+     $              , vin(lx1,ly1,lz1,lelv)
+     $              , win(lx1,ly1,lz1,lelv)
+
+      integer e,eg
+      e = gllel(eg)
+
+      ux=uin(ix,iy,iz,e)
+      uy=vin(ix,iy,iz,e)
+      uz=win(ix,iy,iz,e)
+
+      temp=0              ! Cold inlet
+      if (y.gt.1) temp=1  ! Hot inlet
+
+      return
+      end
+c-----------------------------------------------------------------------
+      subroutine useric (ix,iy,iz,ieg)
+      include 'SIZE'
+      include 'TOTAL'
+      include 'NEKUSE'
+
+      ux=0.0
+      uy=0.0
+      uz=1.0
+
+      temp=0
+
+      return
+      end
+c-----------------------------------------------------------------------
+      subroutine usrdat
+      include 'SIZE'
+      include 'TOTAL'
+
+      return
+      end
+c-----------------------------------------------------------------------
+      subroutine usrdat3
+      include 'SIZE'
+      include 'TOTAL'
+
+      return
+      end
+c-----------------------------------------------------------------------
+      subroutine usrdat2
+      include 'SIZE'
+      include 'TOTAL'
+
+      ifield=1
+      call usrdat2_skin  ! For skinning the mesh
+
+      return
+      end
+c-----------------------------------------------------------------------
+      subroutine usrdat2_skin  ! For skinning the mesh
+      include 'SIZE'
+      include 'TOTAL'
+
+      common /ucrns/ xo(lx1*ly1*lz1,lelt)
+     $             , yo(lx1*ly1*lz1,lelt)
+     $             , zo(lx1*ly1*lz1,lelt)
+     $             , x0(lx1*ly1*lz1,lelt)
+     $             , y0(lx1*ly1*lz1,lelt)
+     $             , z0(lx1*ly1*lz1,lelt)
+      integer e
+
+
+      delta     = 0.05
+      big_delta = 1e20
+
+c      if (nid.eq.0) then
+c         open(unit=39,file='delta.dat')
+c         read(39,*) delta,big_delta
+c         close(39)
+c      endif
+
+      delta     = glsum(delta,1)
+      big_delta = glsum(big_delta,1)
+
+      call save_solid            ! Push the solid elements
+
+      call skin(delta,big_delta) ! Skin the mesh
+
+      call restore_solid         ! Restore the solid elements
+
+      call get_new_global_el
+
+      imid = 2
+      call gen_rea(imid)  ! Generate and output essential parts of .rea
+      call gen_re2(imid)  ! Generate and output essential parts of .rea
+      call exitti('Quit in dat2_skin$',nelgt)
+
+      return
+      end
+c-----------------------------------------------------------------------
+      subroutine skin(delta,big_delta)
+
+      include 'SIZE'
+      include 'TOTAL'
+
+      common /cskin_i/ iskin(3,6*lelt),nel_new
+
+      common /cskin_m/ maskd(lx1,ly1,lz1,lelt),maskn(lx1,ly1,lz1,lelt)
+      real mask,maskd,maskn
+
+      integer e,en,eo,f,fo
+
+      call get_my_skin_elements_and_faces(big_delta)  ! Get list of elements & faces
+
+      do e=1,nel_new
+         eo = iskin(1,e)
+         en = iskin(3,e)
+         call copyel(en,eo) ! Copy all elements info from old to new
+      enddo
+
+      call shrink_mesh(delta,big_delta)
+
+      do e=1,nel_new       ! Extrude new elements to match opposite face
+         eo = iskin(1,e)
+         fo = iskin(2,e)
+         en = iskin(3,e)
+         call extrude_el_xyz(en,eo,fo)
+         call clean_bcs     (en,eo,fo)   ! This is far from perfect
+      enddo
+
+      return
+      end
+c-----------------------------------------------------------------------
+      subroutine extrude_el_xyz(en,eo,f)
+
+      include 'SIZE'
+      include 'TOTAL'
+
+      integer e,en,eo,f
+
+      if (f.eq.1) then
+
+         do k=1,nz1
+         do i=1,nx1
+            dx = xm1(i,1,k,eo)-xm1(i,1,k,en)    ! Shrunk - Original
+            dy = ym1(i,1,k,eo)-ym1(i,1,k,en)
+            dz = zm1(i,1,k,eo)-zm1(i,1,k,en)
+            do j=1,ny1
+               s = .5*(1+zgm1(j,1))
+               xm1(i,j,k,en)=xm1(i,1,k,en)+s*dx
+               ym1(i,j,k,en)=ym1(i,1,k,en)+s*dy
+               zm1(i,j,k,en)=zm1(i,1,k,en)+s*dz
+            enddo
+         enddo
+         enddo
+
+      elseif (f.eq.3) then
+
+         do k=1,nz1
+         do i=1,nx1
+            dx = xm1(i,ny1,k,eo)-xm1(i,ny1,k,en)
+            dy = ym1(i,ny1,k,eo)-ym1(i,ny1,k,en)
+            dz = zm1(i,ny1,k,eo)-zm1(i,ny1,k,en)
+            do j=1,ny1
+               s = .5*(1-zgm1(j,1))
+               xm1(i,j,k,en)=xm1(i,ny1,k,en)+s*dx
+               ym1(i,j,k,en)=ym1(i,ny1,k,en)+s*dy
+               zm1(i,j,k,en)=zm1(i,ny1,k,en)+s*dz
+            enddo
+         enddo
+         enddo
+
+      elseif (f.eq.4) then   ! r = -1 case
+
+         do k=1,nz1
+         do j=1,ny1
+            dx = xm1(1,j,k,eo)-xm1(1,j,k,en)
+            dy = ym1(1,j,k,eo)-ym1(1,j,k,en)
+            dz = zm1(1,j,k,eo)-zm1(1,j,k,en)
+            do i=1,nx1
+               s = .5*(1+zgm1(i,1))
+               xm1(i,j,k,en)=xm1(1,j,k,en)+s*dx  ! When s=1, this is value that
+               ym1(i,j,k,en)=ym1(1,j,k,en)+s*dy  ! the prior surface shrunk to.
+               zm1(i,j,k,en)=zm1(1,j,k,en)+s*dz
+            enddo
+         enddo
+         enddo
+
+      elseif (f.eq.2) then   ! r = +1 case
+
+         do k=1,nz1
+         do j=1,ny1
+            dx = xm1(nx1,j,k,eo)-xm1(nx1,j,k,en)
+            dy = ym1(nx1,j,k,eo)-ym1(nx1,j,k,en)
+            dz = zm1(nx1,j,k,eo)-zm1(nx1,j,k,en)
+            do i=1,nx1
+               s = .5*(1-zgm1(i,1))
+               xm1(i,j,k,en)=xm1(nx1,j,k,en)+s*dx
+               ym1(i,j,k,en)=ym1(nx1,j,k,en)+s*dy
+               zm1(i,j,k,en)=zm1(nx1,j,k,en)+s*dz
+            enddo
+         enddo
+         enddo
+
+      elseif (f.eq.5) then   ! t = -1 case
+
+         do j=1,ny1
+         do i=1,nx1
+            dx = xm1(i,j,1,eo)-xm1(i,j,1,en)
+            dy = ym1(i,j,1,eo)-ym1(i,j,1,en)
+            dz = zm1(i,j,1,eo)-zm1(i,j,1,en)
+            do k=1,nz1
+               s = .5*(1+zgm1(k,1))
+               xm1(i,j,k,en)=xm1(i,j,1,en)+s*dx
+               ym1(i,j,k,en)=ym1(i,j,1,en)+s*dy
+               zm1(i,j,k,en)=zm1(i,j,1,en)+s*dz
+            enddo
+         enddo
+         enddo
+
+      elseif (f.eq.6) then   ! t = +1 case
+
+         do j=1,ny1
+         do i=1,nx1
+            dx = xm1(i,j,nz1,eo)-xm1(i,j,nz1,en)
+            dy = ym1(i,j,nz1,eo)-ym1(i,j,nz1,en)
+            dz = zm1(i,j,nz1,eo)-zm1(i,j,nz1,en)
+            do k=1,nz1
+               s = .5*(1-zgm1(k,1))
+               xm1(i,j,k,en)=xm1(i,j,nz1,en)+s*dx
+               ym1(i,j,k,en)=ym1(i,j,nz1,en)+s*dy
+               zm1(i,j,k,en)=zm1(i,j,nz1,en)+s*dz
+            enddo
+         enddo
+         enddo
+
+      endif
+
+      return
+      end
+c-----------------------------------------------------------------------
+      subroutine get_my_skin_elements_and_faces(big_delta)  ! Get list of elements & faces
+
+      include 'SIZE'
+      include 'TOTAL'
+
+      common /bcskin/ tbc(6,lelt)
+      character*1 tbc
+
+      common /cskin_i/ iskin(3,6*lelt),nel_new
+      common /cskin_m/ maskd(lx1,ly1,lz1,lelt),maskn(lx1,ly1,lz1,lelt)
+      real mask,maskd,maskn
+
+      integer e,en,eo,fo
+
+      nface = 2*ndim
+
+      nel_new = 0
+
+      n = lx1*ly1*lz1*nelv
+      call rone(maskd,n)
+      call rone(maskn,n)
+
+      call blank(tbc,6*lelt)
+
+      do eo=1,nelv
+      do fo=1,nface
+         if (cbc(fo,eo,1).eq.'W  ') tbc(fo,eo) = 'X'
+c         if (cbc(fo,eo,1).eq.'v  ') tbc(fo,eo) = 'X'
+c         if (cbc(fo,eo,1).eq.'SYM') tbc(fo,eo) = 'X'
+      enddo
+      enddo
+
+      write(6,*) big_delta,'big_delta'
+      do eo=1,nelv
+      do fo=1,nface
+            call fcaver(xbar,xm1,eo,fo)
+            call fcaver(ybar,ym1,eo,fo)
+            call fcaver(zbar,zm1,eo,fo)
+            rad = sqrt(xbar**2+ybar**2+zbar**2)
+            write(6,*) fo,eo,tbc(fo,eo),rad,' RAD'
+         if (tbc(fo,eo).eq.'X') then
+            if (rad.lt.big_delta) then ! inside
+c           if (rad.gt.0) then ! inside
+               nel_new = nel_new + 1
+               e       = nel_new
+               en      = nelv + nel_new
+               iskin (1,e) = eo             ! Original element
+               iskin (2,e) = fo             ! Original face
+               iskin (3,e) = en
+               call facev(maskd,eo,fo,0.0,lx1,ly1,lz1)
+            else
+               tbc(fo,eo)=' ' ! Reset displacement flag to void
+               call facev(maskn,eo,fo,0.0,lx1,ly1,lz1)
+            endif
+         endif
+           ! DKF: I added thsi to reset the displacement flag for 'v  ' and 'o '
+          !  endif
+          if (cbc(fo,eo,1).eq.'v  ') then
+               tbc(fo,eo)=' ' ! Reset displacement flag to void
+               call facev(maskn,eo,fo,0.0,lx1,ly1,lz1)
+          endif
+          if (cbc(fo,eo,1).eq.'O  ') then
+               tbc(fo,eo)=' ' ! Reset displacement flag to void
+               call facev(maskn,eo,fo,0.0,lx1,ly1,lz1)
+          endif
+          if (cbc(fo,eo,1).eq.'SYM') then
+               tbc(fo,eo)=' ' ! Reset displacement flag to void
+               call facev(maskn,eo,fo,0.0,lx1,ly1,lz1)
+          endif
+          if (cbc(fo,eo,1).eq.'P  ') then
+               tbc(fo,eo)=' ' ! Reset displacement flag to void
+               call facev(maskn,eo,fo,0.0,lx1,ly1,lz1)
+          endif       
+
+ 
+      enddo
+      enddo
+c      stop
+
+      ifield=1
+      call dsop(maskn,'*  ',nx1,ny1,nz1)
+      call dsop(maskd,'*  ',nx1,ny1,nz1)
+
+      return
+      end
+c-----------------------------------------------------------------------
+      subroutine copyel(en,eo) ! Copy all elements info from old to new
+
+      include 'SIZE'
+      include 'TOTAL'
+
+      integer e,en,eo,f
+
+      common /ivrtx/ vertex (2**ldim,lelt)
+      integer vertex,maxvtx
+      save    maxvtx
+      data    maxvtx / 0 /
+
+      common /bcskin/ tbc(6,lelt)
+      character*1 tbc
+
+      nv=2**ldim
+
+      nxyz = nx1*ny1*nz1
+
+      xbar=vlsum(xm1(1,1,1,eo),nxyz)/nxyz
+      ybar=vlsum(ym1(1,1,1,eo),nxyz)/nxyz
+      zbar=vlsum(zm1(1,1,1,eo),nxyz)/nxyz
+      zbar=sqrt(xbar*xbar + ybar*ybar)
+
+      call copy(xm1(1,1,1,en),xm1(1,1,1,eo),nxyz)
+      call copy(ym1(1,1,1,en),ym1(1,1,1,eo),nxyz)
+      call copy(zm1(1,1,1,en),zm1(1,1,1,eo),nxyz)
+
+      do ifld=0,ldimt1
+         call chcopy(cbc(1,en,ifld), cbc(1,eo,ifld)  ,18) ! character*3 x 6 entries
+         call copy  (bc (1,1,en,ifld),bc(1,1,eo,ifld),30)
+      enddo
+
+      call chcopy(tbc(1,en),tbc(1,eo),6) ! character*3 x 6 entries, TEMP BC
+
+      call chcopy(ccurve(1,en)  ,ccurve(1,eo)  ,12) ! character*1 x 12 entries
+      call copy  ( curve(1,1,en), curve(1,1,eo),6)
+
+      call icopy (vertex(1,en),vertex(1,eo),nv)
+
+      lglel(en) = lglel(eo) 
+
+c     call icadd (vertex(1,en),maxvtx,nv)         ! Shift vertex count by maxvtx
+
+c     if (nio.eq.0) write(6,1) eo,en,xbar,ybar,zbar,lglel(en)
+c   1 format('copy element: ',2i9,1p3e12.4,i9)
+
+      return
+      end
+c-----------------------------------------------------------------------
+      subroutine laplaceh
+     $     (name,u,h1,h2,mask,mult,ifld,tli,maxi,approx,napprox)
+      include 'SIZE'
+      include 'TOTAL'
+      include 'CTIMER'
+c
+      character*4 name
+      real u(1),h1(1),h2(1),mask(1),mult(1),approx (1)
+      integer   napprox(1)
+
+      parameter (lt=lx1*ly1*lz1*lelv)
+      common /scruz/ r (lt),ub(lt)
+
+      logical ifstdh
+      character*4  cname
+      character*6  name6
+
+      logical ifwt,ifvec
+
+      call chcopy(cname,name,4)
+      call capit (cname,4)
+
+      call blank (name6,6)
+      call chcopy(name6,name,4)
+      ifwt  = .true.
+      ifvec = .false.
+      isd   = 1
+      imsh  = 1
+      nel   = nelfld(ifld)
+
+      n = nx1*ny1*nz1*nel
+
+      call copy (ub,u,n)             ! ub = u on boundary
+      call dsavg(ub)                 ! Make certain ub is in H1
+                                     !     _
+      call axhelm (r,ub,h1,h2,1,1)   ! r = A*ub
+
+      do i=1,n                       !        _
+         r(i)=-r(i)*mask(i)          ! r = -M*A*ub
+      enddo
+
+      call dssum  (r,nx1,ny1,nz1)    ! dssum rhs
+
+      if (napprox(1).ne.-1) call project1
+     $    (r,n,approx,napprox,h1,h2,mask,mult,ifwt,ifvec,name6)
+
+      tol = -abs(tli)
+      if (nel.eq.nelv) then
+        call hmhzpf (name,u,r,h1,h2,mask,mult,imsh,tol,maxi,isd,binvm1)
+      else
+        call hmhzpf (name,u,r,h1,h2,mask,mult,imsh,tol,maxi,isd,bintm1)
+      endif
+
+      if (napprox(1).ne.-1) call project2
+     $     (u,n,approx,napprox,h1,h2,mask,mult,ifwt,ifvec,name6)
+
+      call add2(u,ub,n)
+
+      return
+      end
+c-----------------------------------------------------------------------
+      subroutine shrink_mesh(delta,big_delta)
+c
+c     Push any 'v  ' or 'W  ' BC surface that is within distance 
+c     "big_delta" of the origin by a distance delta.
+c
+
+      include 'SIZE'
+      include 'TOTAL'
+
+      common /ucrns/ xo(lx1*ly1*lz1,lelt)
+     $             , yo(lx1*ly1*lz1,lelt)
+     $             , zo(lx1*ly1*lz1,lelt)
+     $             , x0(lx1,ly1,lz1,lelt)
+     $             , y0(lx1,ly1,lz1,lelt)
+     $             , z0(lx1,ly1,lz1,lelt)
+      common /ucruz/ dx(lx1,ly1,lz1,lelt)
+     $             , dy(lx1,ly1,lz1,lelt)
+     $             , dz(lx1,ly1,lz1,lelt)
+      common /ecrsf/ h1(lx1*ly1*lz1*lelt)
+     $             , h2(lx1*ly1*lz1*lelt)
+     $             , mask(lx1*ly1*lz1*lelt)
+      integer e,f,eo,fo
+
+      common /cskin_i/ iskin(3,6*lelt),nel_new
+      common /cskin_m/ maskd(lx1,ly1,lz1,lelt),maskn(lx1,ly1,lz1,lelt)
+      real mask,maskd,maskn
+
+      integer ndum(2)
+
+      ndum(1)=-1
+
+      ifxyo = .true.
+
+      nxy  = lx1*ly1
+      nxyz = lx1*ly1*lz1
+      n    = lx1*ly1*lz1*nelv
+
+      call opcopy (x0,y0,z0,xm1,ym1,zm1)
+
+c     call cheap_dist(dx,1,'W   ')  ! Distance function stored in dx
+c     call cheap_dist(dy,1,'v   ')  ! Distance function stored in dy
+c     do i=1,n
+c        t(i,1,1,1,1)=min(dx(i,1,1,1),dy(i,1,1,1))
+c     enddo
+      call cheap_dist(t,1,'W   ')  ! Distance function stored in dx
+
+      call rone (h1,n)
+      call rzero(h2,n)
+      do i=1,n
+         dist=t(i,1,1,1,1)/(10*delta)
+         h1(i)=9*exp(-dist) + h1(i)
+      enddo
+      i=1
+      do e=1,nelv
+         h1max=vlmax(h1(i),nxyz)
+         call cfill(h1(i),h1max,nxyz)
+         i=i+nxyz
+      enddo
+
+
+      call col3 (mask,maskd,maskn,n)
+
+      call get_displacement_bcs(dx,dy,dz,delta,big_delta)
+      call outpost(dx,dy,dz,pr,h1,'   ')
+
+      tol = -1.e-6
+      call laplaceh('dspx',dx,h1,h2,mask,vmult,1,tol,5000,dum,ndum)
+      call laplaceh('dspy',dy,h1,h2,mask,vmult,1,tol,5000,dum,ndum)
+      if (if3d)
+     $call laplaceh('dspz',dz,h1,h2,mask,vmult,1,tol,5000,dum,ndum)
+
+      call add2(xm1,dx,n)
+      call add2(ym1,dy,n)
+      call add2(zm1,dz,n)
+
+      call outpost(dx,dy,dz,pr,t,'   ')
+c     call exitti('quit shrink$',n)
+
+      return
+      end
+c-----------------------------------------------------------------------
+      subroutine get_displacement_bcs(dx,dy,dz,delta,big_delta)
+
+      include 'SIZE'
+      include 'TOTAL'
+
+      common /bcskin/ tbc(6,lelt)
+      character*1 tbc
+
+      real dx(lx1,ly1,lz1,lelt)
+      real dy(lx1,ly1,lz1,lelt)
+      real dz(lx1,ly1,lz1,lelt)
+
+      common /scrns/ wt(lx1,ly1,lz1,lelt)
+      integer e,f
+
+      n = lx1*ly1*lz1*nelv
+      call rzero(dx,n)
+      call rzero(dy,n)
+      call rzero(dz,n)
+      call rzero(wt,n)
+
+      do e=1,nelv
+      do f=1,2*ldim
+         if (tbc(f,e).eq.'X') then
+          call fcaver(xbar,xm1,e,f)
+          call fcaver(ybar,ym1,e,f)
+          call fcaver(zbar,zm1,e,f)
+          rad = sqrt(xbar**2+ybar**2+zbar**2)
+          if (rad.lt.big_delta) then ! inside
+c         if (rad.gt.0) then ! inside
+
+            call facind (i0,i1,j0,j1,k0,k1,lx1,ly1,lz1,f)
+            l=0
+            do k=k0,k1
+            do j=j0,j1
+            do i=i0,i1
+               l=l+1
+               dx(i,j,k,e)=dx(i,j,k,e)-unx(l,1,f,e)
+               dy(i,j,k,e)=dy(i,j,k,e)-uny(l,1,f,e)
+               dz(i,j,k,e)=dz(i,j,k,e)-unz(l,1,f,e)
+               wt(i,j,k,e)=wt(i,j,k,e)+1  ! Don't really need weights because unorm
+            enddo
+            enddo
+            enddo
+          endif
+         endif
+      enddo
+      enddo
+
+      call vec_dssum(dx,dy,dz,lx1,ly1,lz1)
+      do i=1,n
+         dmax=max(abs(dx(i,1,1,1)),abs(dy(i,1,1,1)))
+         dmax=max(abs(dz(i,1,1,1)),dmax)
+         if (dmax.gt.0) then ! normalize
+            denom = dx(i,1,1,1)**2+dy(i,1,1,1)**2+dz(i,1,1,1)**2
+            scale = 1./sqrt(denom)
+            dx(i,1,1,1)=dx(i,1,1,1)*scale
+            dy(i,1,1,1)=dy(i,1,1,1)*scale
+            dz(i,1,1,1)=dz(i,1,1,1)*scale
+         endif
+      enddo
+      call cmult(dx,delta,n)
+      call cmult(dy,delta,n)
+      call cmult(dz,delta,n)
+
+      call interp_m_to_n(wt,2,dx,nx1) ! Make a linear ramp for unit 
+      call interp_m_to_n(dx,nx1,wt,2) ! normals that are on corners
+
+      call interp_m_to_n(wt,2,dy,nx1)
+      call interp_m_to_n(dy,nx1,wt,2)
+
+      call interp_m_to_n(wt,2,dz,nx1)
+      call interp_m_to_n(dz,nx1,wt,2)
+
+      return
+      end
+c-----------------------------------------------------------------------
+      subroutine get_new_global_el
+
+c     Have to figure out how to give a global element number to the
+c     new elements.
+c
+c     Here, use some sort of concatentation with a nonscalable algorithm.
+
+
+      include 'SIZE'
+      include 'TOTAL'
+
+      integer e,en,eo,eg,eg_new,eg_old
+
+      common /mysolid/ nelvo,nelto,nsave,ksave
+      common /cskin_i/ iskin(3,6*lelt),nel_new
+      parameter (lt7=7*lx1*ly1*lz1*lelt)
+      common /scrns/ work(lt7)
+
+      nel_new_my_id    = 0
+      nel_new_lt_my_id = 0
+
+      nrem = lelg - nelgt - nsave
+      call izero(gllnid(nelgv+1),nrem)
+      call izero(gllel (nelgv+1),nrem)
+
+
+      write(6,*) nrem,nel_new,' nel_new'
+c      stop
+      do my_id=0,np-1
+         call nekgsync
+
+         nel_new_my_id = 0
+         nel_old_my_id = 0
+         if (my_id.eq.nid) then
+            nel_new_my_id    = nel_new
+            nel_old_my_id    = nelv
+         endif
+         write(6,1) my_id,eg,nelgv,nel_new_lt_my_id,nel_new_my_id
+         nel_new_my_id    = iglmax(nel_new_my_id,1)
+         nel_old_my_id    = iglmax(nel_old_my_id,1)
+
+         do i=1,nel_new_my_id
+            eg = nelgv + nel_new_lt_my_id + i
+            write(6,1) i,eg,nelgv,nel_new_lt_my_id,nel_new_my_id
+1           format('egnew:',5i12)
+            gllnid(eg) = my_id
+            gllel (eg) = nel_old_my_id + i
+         enddo
+         if (eg.gt.lelg) call exitti('eg too large$',eg)
+         if (gllel(eg).gt.lelt) call exitti('lelt too small$',gllel(eg))
+
+         nel_new_lt_my_id = nel_new_lt_my_id + nel_new_my_id
+
+      enddo
+
+      nelgv_new = iglmax(nel_new_lt_my_id,1)
+
+      nelgv = nelgv + nelgv_new
+      nelgt = nelgt + nelgv_new
+
+      nelg(1) = nelgv
+      nelg(2) = nelgt
+
+      nelv  = nelv + nel_new
+      nelt  = nelt + nel_new
+
+      call izero(gllel (nelgv+1),nel_new)
+      call izero(gllnid(nelgv+1),nel_new)
+      do e=nelv+1,nelt
+         eg_old = lglel(e)
+         eg_new = eg_old + nelgv_new
+         lglel(e) = eg_new
+         gllel (eg_new) = e
+         gllnid(eg_new) = nid
+c        write(6,9) e,lglel(e),eg_old,eg_new,nelgv_new
+c   9    format('eg_old: ',5i8)
+      enddo
+      call igop(gllel (nelgv+1),work,'+  ',nelgv_new)
+      call igop(gllnid(nelgv+1),work,'+  ',nelgv_new)
+
+      if (nid.eq.0) write(6,*) nelv,nelt,nelgt,nelgv,nel_new,' nelnew'
+c     write(6,3) nid,nelv,nelt,nelgt,nelgv,nelgv_new,' nelnew'
+c   3 format(6i8,a9)
+
+c     do e=1,nelt
+c        write(6,8) e,lglel(e),gllel(e),gllnid(e)
+c   8    format('glonum: ',4i8)
+c     enddo
+
+      return
+      end
+c-----------------------------------------------------------------------
+      subroutine interp_m_to_n(un,n,um,m)
+
+      include 'SIZE'
+      include 'INPUT'
+
+      real un(1),um(1)
+
+      integer e
+
+      common /ctmp0/ zm(100),wm(100),zn(100),wn(100),j(1000),jt(1000)
+      common /ctmp1/ w1(1000),w2(1000)
+
+
+      call zwgll(zm,wm,m)
+      call zwgll(zn,wn,n)
+
+      call gen_int_gz(j,jt,zn,n,zm,m)
+
+      im=1
+      in=1
+
+      do e=1,nelv
+
+         if (if3d) then
+            call mxm(j,n,um(im),m,w1,m*m)
+            l1=1
+            l2=1
+            do k=1,m
+               call mxm(w1(l1),n,jt,m,w2(l2),n)
+               l1=l1+n*m
+               l2=l2+n*n
+            enddo
+            call mxm(w2,n*n,jt,m,un(in),n)
+            im = im+m*m*m
+            in = in+n*n*n
+         else
+            call mxm(j,n,um(im),m,w1,m)
+            call mxm(w1,n,jt,m,un(in),n)
+            im = im+m*m
+            in = in+n*n
+         endif
+
+      enddo
+
+      return
+      end
+c-----------------------------------------------------------------------
+      subroutine save_solid            ! Push the solid elements
+      include 'SIZE'
+      include 'TOTAL'
+
+      integer e,en,eo,eg
+
+      common /mysolid/ nelvo,nelto,nsave,ksave
+
+      nelvo = nelv
+      nelto = nelt
+
+      nsave = nelt-nelv    ! Number to be saved
+
+      ksave = lelt-nsave+1 ! Starting point for saved elements
+      
+
+      k=0
+      do e =nelt,nelv+1,-1
+         en=lelt-k
+         call copyel(en,e) ! Copy thermal elements to end of list
+         k=k+1
+      enddo
+
+      return
+      end
+c-----------------------------------------------------------------------
+      subroutine restore_solid            ! Restore the solid elements
+      include 'SIZE'
+      include 'TOTAL'
+
+      integer e,en,eo,eg,es
+
+      common /mysolid/ nelvo,nelto,nsave,ksave
+
+      common /cskin_i/ iskin(3,6*lelt),nel_new
+
+      i_ok = 0                  ! Ensure enough space
+      if (nelt.ge.ksave) i_ok=1
+      i_ok = iglsum(i_ok,1)
+      if (i_ok.gt.0) call exitti('Increase lelt in SIZE, solid$',nelt)
+
+      k=0
+      do e=nelt,nelv+1,-1
+         es=lelt-k
+         en=e+nel_new
+         call copyel(en,es) ! Copy thermal elements to end of list
+         k=k+1
+      enddo
+
+      return
+      end
+c-----------------------------------------------------------------------
+      subroutine clean_bcs (en,eo,f)
+
+      include 'SIZE'
+      include 'TOTAL'
+
+      integer e,en,eo,f,fo,ff
+
+      common /bcskin/ tbc(6,lelt)
+      character*1 tbc
+
+      integer f_opp(6)
+      save    f_opp
+      data    f_opp / 3 , 4 , 1 , 2 , 6 , 5 /
+
+      fo = f_opp(f)
+
+      do ifld = 1,ldimt1
+
+         cbc(f,eo,ifld) = '   '
+         call rzero(bc(1,f,eo,ifld),5)
+
+         cbc(fo,en,ifld) = '   '
+         call rzero(bc(1,fo,en,ifld),5)
+
+         do ff=1,2*ldim
+            if (ff.ne.f.and.tbc(ff,en).eq.'X') then
+               cbc(            ff,en,ifld) = '   '
+               call rzero(bc(1,ff,en,ifld),5)
+            endif
+         enddo
+
+      enddo
+
+      return
+      end
+c-----------------------------------------------------------------------
