@@ -1,0 +1,215 @@
+#include "meshsmoother.f"
+
+       subroutine uservp(ix,iy,iz,eg) ! set variable properties
+
+c      implicit none
+
+      integer ix,iy,iz,eg
+     
+      include 'SIZE'
+      include 'TOTAL'
+      include 'NEKUSE'
+
+      integer e
+c     e = gllel(eg)
+
+      udiff  = 0.0
+      utrans = 0.0
+
+      return
+      end
+c-----------------------------------------------------------------------
+      subroutine userf(ix,iy,iz,eg) ! set acceleration term
+c
+c     Note: this is an acceleration term, NOT a force!
+c     Thus, ffx will subsequently be multiplied by rho(x,t).
+c
+c      implicit none
+
+      integer ix,iy,iz,eg
+
+      include 'SIZE'
+      include 'TOTAL'
+      include 'NEKUSE'
+
+      integer e
+c     e = gllel(eg)
+
+      ffx = 0.0
+      ffy = 0.0
+      ffz = 0.0
+
+      return
+      end
+c-----------------------------------------------------------------------
+      subroutine userq(ix,iy,iz,eg) ! set source term
+
+c      implicit none
+
+      integer ix,iy,iz,eg
+
+      include 'SIZE'
+      include 'TOTAL'
+      include 'NEKUSE'
+
+      integer e
+c     e = gllel(eg)
+
+      qvol   = 0.0
+
+      return
+      end
+c-----------------------------------------------------------------------
+      subroutine userbc(ix,iy,iz,iside,eg) ! set up boundary conditions
+c
+c     NOTE ::: This subroutine MAY NOT be called by every process
+c
+c      implicit none
+
+      integer ix,iy,iz,iside,eg
+
+      include 'SIZE'
+      include 'TOTAL'
+      include 'NEKUSE'
+
+c      if (cbc(iside,gllel(eg),ifield).eq.'v01')
+
+      ux   = 0.0
+      uy   = 0.0
+      uz   = 0.0
+      temp = 0.0
+
+      return
+      end
+c-----------------------------------------------------------------------
+      subroutine useric(ix,iy,iz,eg) ! set up initial conditions
+
+c      implicit none
+
+      integer ix,iy,iz,eg
+
+      include 'SIZE'
+      include 'TOTAL'
+      include 'NEKUSE'
+
+      ux   = 0.0
+      uy   = 0.0
+      uz   = 0.0
+      temp = 0.0
+
+      return
+      end
+c-----------------------------------------------------------------------
+      subroutine userchk()
+
+c      implicit none
+
+      include 'SIZE'
+      include 'TOTAL'
+
+      return
+      end
+c-----------------------------------------------------------------------
+      subroutine userqtl ! Set thermal divergence
+
+      call userqtl_scig 
+
+      return
+      end
+c-----------------------------------------------------------------------
+      subroutine usrdat()   ! This routine to modify element vertices
+
+c      implicit none
+
+      include 'SIZE'
+      include 'TOTAL'
+
+      return
+      end
+c-----------------------------------------------------------------------
+      subroutine usrdat2()  ! This routine to modify mesh coordinates
+      include 'SIZE'
+      include 'TOTAL'
+
+      ifxyo = .true.
+      call outpost(vx,vy,vz,pr,t,'   ')
+
+
+
+c-1.0000       19.000     -0.58810E-18   12.000
+c      call modbcpln(-1, 1, ' P  ',' O  ')
+c      call modbcpln(19, 1, ' P  ',' O  ')
+c      call modbcpln(-0.58810E-18, 2, ' P  ',' v  ')
+c      call modbcpln(12.00, 2, ' P  ',' v  ')
+
+      call meshsmoother
+
+      call modbcpln(-1, 1, ' SYM','    ')
+      call modbcpln(19, 1, ' SYM  ','    ')
+      call modbcpln(-0.58810E-18, 2, ' SYM','    ')
+      call modbcpln(12.00, 2, ' SYM','    ')
+
+      call gen_rea_full(1)                   !output the rea for smooth mesh
+
+
+      call outpost(vx,vy,vz,pr,t,'   ')
+      call exitt
+
+      return
+      end
+c-----------------------------------------------------------------------
+      subroutine usrdat3()
+
+c      implicit none
+
+      include 'SIZE'
+      include 'TOTAL'
+
+      return
+      end
+      subroutine userchk_dt
+      include 'SIZE'
+      include 'TOTAL'
+      return
+      end
+c-----------------------------------------------------------------------
+      subroutine modbcpln(vcc,dirflag,bco,bcn)
+      include 'SIZE'
+      include 'TOTAL'
+      real vcc,tol
+      character*3 bco,bcn
+      integer nbc,i,j,k,e,f,tchk,dirflag,wrkk,nbcg
+
+      nbc = 0
+      tol = 1.e-5
+      do e=1,nelv
+      do f=1,2*ndim
+       if (cbc(f,e,1).eq.bco) then
+       tchk = 1
+       CALL FACIND (KX1,KX2,KY1,KY2,KZ1,KZ2,NX1,NY1,NZ1,f)
+        do IZ=KZ1,KZ2
+        do IY=KY1,KY2
+        do IX=KX1,KX2
+        if (dirflag.eq.1) rval = abs(xm1(ix,iy,iz,e)-vcc)
+        if (dirflag.eq.2) rval = abs(ym1(ix,iy,iz,e)-vcc)
+        if (dirflag.eq.3) rval = abs(zm1(ix,iy,iz,e)-vcc)
+         if (abs(rval).gt.tol) then
+           tchk = 0
+         endif
+        enddo
+        enddo
+        enddo
+          if (tchk.eq.1) cbc(f,e,1) = bcn
+          if (tchk.eq.1) nbc = nbc+1
+       endif
+      enddo
+      enddo
+
+      call igop(nbc,wrkk,'+  ',1)
+      if (nid.eq.0) write(6,*) 'number of faces for ',bco,' bc is', nbc
+
+      RETURN
+      END
+C-----------------------------------------------------------------------
+
+c-----------------------------------------------------------------------

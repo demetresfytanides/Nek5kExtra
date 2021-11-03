@@ -1,0 +1,82 @@
+pretex << EOF
+z4
+   1 READ PREVIOUS PARAMETERS 
+z1
+   1 BUILD FROM FILE          
+z1
+   3 GLOBAL REFINE            
+   8 REPLICATE/ROTATE         
+1      Rep. (1), Rot. (2), Rep/Rot (3) Template (4)? (0=abort)
+2 1 0  Input translation vector: x,y,z
+1      Input number of reps (e.g., 1 --> double mesh size)
+   8 REPLICATE/ROTATE         
+1    Rep. (1), Rot. (2), Rep/Rot (3) Template (4)? (0=abort)
+0 -2 0    Input translation vector: x,y,z
+1    Input number of reps (e.g., 1 --> double mesh size)
+   8 REPLICATE/ROTATE         
+1    Rep. (1), Rot. (2), Rep/Rot (3) Template (4)? (0=abort)
+0 4 0 Input translation vector: x,y,z
+4     Input number of reps (e.g., 1 --> double mesh size)
+  13 CLIP DOMAIN              
+   3 Clip Y                   
+-.0001 Input location of Y-clipping plane.
+<      Input "<" or ">" to indicate desired clip section.
+y      You will be eliminating    5840 of    46720 elements BELOW clipping plane.
+   3 Clip Y                   
+12.001 Input location of Y-clipping plane.
+>      Input "<" or ">" to indicate desired clip section.
+y      OK? (Y/N)
+   1 UP MENU                  
+   8 REPLICATE/ROTATE         
+1    Rep. (1), Rot. (2), Rep/Rot (3) Template (4)? (0=abort)
+4 0 0 Input translation vector: x,y,z
+4     Input number of reps (e.g., 1 --> double mesh size)
+   1 END GLOBAL REFINE        
+   1 END    ELEMENTS          
+   1 ACCEPT MATL,QVOL         
+   1 SET BCs                  
+  11 SET ENTIRE LEVEL         
+   1 periodic auto                 
+n
+   1 SET BCs                  
+  11 SET ENTIRE LEVEL         
+   1 periodic auto                 
+n
+   1 SET BCs                  
+  11 SET ENTIRE LEVEL         
+   1 periodic auto                 
+n
+   1 SET BCs                  
+  11 SET ENTIRE LEVEL         
+   1 periodic auto                 
+n
+   1 SET BCs                  
+  11 SET ENTIRE LEVEL         
+   1 periodic auto                 
+n
+   1 SET BCs                  
+  11 SET ENTIRE LEVEL         
+   1 periodic auto                 
+n
+   1 SET BCs                  
+  11 SET ENTIRE LEVEL         
+   1 periodic auto                 
+n
+   1 SET BCs                  
+  11 SET ENTIRE LEVEL         
+   1 periodic auto                 
+n
+   1 SET BCs                  
+  11 SET ENTIRE LEVEL         
+   1 periodic auto                 
+EOF
+
+
+genmap << EOF
+z4
+.05
+EOF
+
+echo z4 > SESSION.NAME
+postx  &
+
