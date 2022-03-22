@@ -4,20 +4,28 @@ set -a
 # Nek5000 config
 #-------------------------------------------------------------------------------
 
+# source path 
+NEK_SOURCE_ROOT="/PATH TO YOUR nek5000 folder /dfytanidis/Nek5000"
 
-SOURCE_ROOT_PPICLF=$HOME/ppiclF/source
+# Fortran/C compiler
+FC="mpif77"
+CC="mpicc"
+
+# config options (set to "?" to get a list)
+#PPLIST="" 
+
+#-------------------------------------------------------------------------------
+# WHAT FOLLOWS ARE OPTIONAL SETTINGS
+#-------------------------------------------------------------------------------
+
+SOURCE_ROOT_PPICLF="/PATH TO YOUR ppclF folder /cloud_dns/dfytanidis/ppiclF/source"
+
+
 cp ./user_routines/* $SOURCE_ROOT_PPICLF
 cd $SOURCE_ROOT_PPICLF/..
 make
 cd -
 
-
-# source path 
-NEK_SOURCE_ROOT="$HOME/Nek5000" 
-
-# Fortran/C compiler
-FC="mpif77"
-CC="mpicc"
 
 # config options (set to "?" to get a list)
 #PPLIST="" 
