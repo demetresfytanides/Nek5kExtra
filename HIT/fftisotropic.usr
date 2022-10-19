@@ -1,4 +1,3 @@
-
 c-----------------------------------------------------------------------
       subroutine uservp(i,j,k,eg) ! set variable properties
       include 'SIZE'
@@ -85,16 +84,25 @@ c-----------------------------------------------------------------------
       real amp,big
 
       ie = gllel(ieg)
-      amp=1.0*sqrt(0.5e-3*2/3)
+       amp=1.0*sqrt(0.5e-3*2/3)
 
        big =1.e7*eg+1.e8*i+1.e9*j+1.e10*k
-       rand1 = sin(big)
-       rand2 = sin(rand1*big)
-       rand3 = sin(rand2*big)
+       big1 =2*pi*x/0.1
+       big2 =2*pi*y/0.1
+       big3 =2*pi*z/0.1
+       rand1 = cos(big1)*sin(big2)*sin(big3)
+       rand2 = cos(rand1*big1)*sin(big2)*sin(big3)
+       rand3 = cos(rand2*big1)*sin(big2)*sin(big3)
 
-       ux = amp*rand1
-       uy = amp*rand2
-       uz = amp*rand3
+       ux =sin(2*pi*x/0.1)*
+     $   sin(2*pi*y/0.1)*sin(2*pi*z/0.1)
+
+
+
+c         rand1
+       uy = 0 ! amp*rand2
+       uz = 0 ! amp*rand3
+c      if (nid.eq.0) write(6,*)'check init', i,j,k,ux,uy,uz
 
 
        amp=1.0
@@ -118,9 +126,7 @@ c-----------------------------------------------------------------------
       real Tmax, Tmin, psmax, psmin
       parameter (lt=lx1*ly1*lz1*lelt)
 
-
       common /myTKE1/dis1(lt)
-
 
       nt  = nx1*ny1*nz1*nelt
       if (istep.eq.0)  call prepost (.true.,'   ')
@@ -138,10 +144,7 @@ c-----------------------------------------------------------------------
             t(i,1,1,1,2)=max(psmin, t(i,1,1,1,2))
          enddo
 
-
-
-
-      call hpts()
+c     call hpts()
 
       vxa = glsc2(vx,   bm1,nt) / volvm1        ! volume-average
       vya = glsc2(vy,   bm1,nt) / volvm1
@@ -160,6 +163,17 @@ c-----------------------------------------------------------------------
       tketa = 0.5*(vx2+vy2+vz2) !tke(t)
       if(nid.eq.0) write(*,*) 'tke_t=', tketa
       if(nid.eq.0) write(*,*) "Tmean=", te2
+      ifxyo=.true.
+      do i=1,nt
+      x = xm1(i,1,1,1)
+      y = ym1(i,1,1,1)
+      z = zm1(i,1,1,1)
+      vx(i,1,1,1)=sin(2*pi*x/.1)*sin(2*pi*y/.1)*sin(2*pi*z/.1)
+c     $      *sin(2*pi*y/0.1)*sin(2*pi*z/0.1)
+      vy(i,1,1,1) = 0
+      vz(i,1,1,1) = 0
+      enddo
+      call outpost(vx,vy,vz,pr,t,'chk')
       call my_forcing
 
 
@@ -168,10 +182,6 @@ c-----------------------------------------------------------------------
       epss = glsc2(dis1, bm1,nt) / volvm1
 
       if(nid.eq.0) write(*,*) "epsilon = ", epss
-
-
-
-
       return
       end
 c-----------------------------------------------------------------------
@@ -204,30 +214,17 @@ c-----------------------------------------------------------------------
 
       real xlen, ylen, zlen
 
-
-
       common /nekmpi/ mid,mp,nekcomm,nekgroup,nekreal
 
       integer icalld
       save    icalld
       data    icalld /0/
 
-
-
-       call domain_size(xmn,xmx,ymn,ymx,zmn,zmx)
-      
- 
-
-
+      call domain_size(xmn,xmx,ymn,ymx,zmn,zmx)
 
       xlen = xmx-xmn
       ylen = ymx-ymn
       zlen = zmx-zmn
-
-      n = lx1*ly1*lz1*nelv
-
-
-
       return
       end
 c-----------------------------------------------------------------------
@@ -242,6 +239,7 @@ c-----------------------------------------------------------------------
 
       common /myuhat/  ucs(2,2,2,8),vcs(2,2,2,8),wcs(2,2,2,8)
      $               , work(64),cs(8)
+      common /mynorm/  uuu(2,2,2,8),vvv(2,2,2,8),www(2,2,2,8)
 
       real xlen, ylen, zlen
       real eps, argx, argy, argz, cx, cy, cz
@@ -260,27 +258,17 @@ c-----------------------------------------------------------------------
 
       n = lx1*ly1*lz1*nelv
 
-
-
-
-      eps = 0.003375!1.9/100./100.
-
+      eps =1.0 ! 0.003375!1.9/100./100.
 
       !call rzero(ush,8*12) ! Zero the myuhat common block
 
-         
       call   rzero(ucs, 8*12)
       call   rzero(vcs, 8*12)
       call   rzero(wcs, 8*12)
 
-
-
-
       do kz=1,2  ! Find uhat = \int sin(kx 2pi x) ux
       do ky=1,2
       do kx=1,2
-
-
 
          do i=1,n
 
@@ -310,9 +298,12 @@ c-----------------------------------------------------------------------
             cs(6) = cx*sy*cz
             cs(7) = cx*cy*sz
             cs(8) = cx*cy*cz
+c           u=cs(1)
+c           v=0
+c           w=0
 
             do l=1,8 ! Integrate
-               ucs(kx,ky,kz,l) = ucs(kx,ky,kz,l) + cs(l)*u*b
+               ucs(kx,ky,kz,l) = ucs(kx,ky,kz,l) + cs(l)*u*b 
                vcs(kx,ky,kz,l) = vcs(kx,ky,kz,l) + cs(l)*v*b
                wcs(kx,ky,kz,l) = wcs(kx,ky,kz,l) + cs(l)*w*b
             enddo
@@ -322,9 +313,85 @@ c-----------------------------------------------------------------------
       enddo
       enddo
 
+      do kz=1,2  ! Find uhat = \int sin(kx 2pi x) ux
+      do ky=1,2
+      do kx=1,2
+
+         do i=1,n
+
+            x=xm1(i,1,1,1)
+            y=ym1(i,1,1,1)
+            z=zm1(i,1,1,1)
+           u=vx (i,1,1,1)
+           v=vy (i,1,1,1)
+           w=vz (i,1,1,1)
+            b=bm1(i,1,1,1)
+
+            argx = x*2*pi*kx/xlen
+            argy = y*2*pi*ky/ylen
+            argz = z*2*pi*kz/zlen
+
+            cx = cos(argx)
+            cy = cos(argy)
+            cz = cos(argz)
+            sx = sin(argx)
+            sy = sin(argy)
+            sz = sin(argz)
+            cs(1) = sx*sy*sz
+            cs(2) = sx*sy*cz
+            cs(3) = sx*cy*sz
+            cs(4) = sx*cy*cz
+            cs(5) = cx*sy*sz
+            cs(6) = cx*sy*cz
+            cs(7) = cx*cy*sz
+            cs(8) = cx*cy*cz
+c            u=cs(1)
+c            v=0
+c            w=0
+
+            do l=1,8 ! Integrate
+               uuu(kx,ky,kz,l) = uuu(kx,ky,kz,l) + cs(l)*cs(l)*b 
+               vvv(kx,ky,kz,l) = vvv(kx,ky,kz,l) + cs(l)*cs(l)*b 
+               www(kx,ky,kz,l) = www(kx,ky,kz,l) + cs(l)*cs(l)*b 
+            enddo
+
+         enddo
+      enddo
+      enddo
+      enddo
+
+      call gop(uuu,work,'+  ',64) ! Sum integrals across all processors
+      call gop(vvv,work,'+  ',64) ! Sum integrals across all processors
+      call gop(www,work,'+  ',64) ! Sum integrals across all processors
+
       call gop(ucs,work,'+  ',64) ! Sum integrals across all processors
       call gop(vcs,work,'+  ',64) ! Sum integrals across all processors
       call gop(wcs,work,'+  ',64) ! Sum integrals across all processors
+
+      do kz=1,2  ! Find uhat = \int sin(kx 2pi x) ux
+      do ky=1,2
+      do kx=1,2
+      do l=1,8 ! Integrate
+      ucs(kx,ky,kz,l) = ucs(kx,ky,kz,l)/uuu(kx,ky,kz,l)
+      vcs(kx,ky,kz,l) = vcs(kx,ky,kz,l)/vvv(kx,ky,kz,l)
+      wcs(kx,ky,kz,l) = wcs(kx,ky,kz,l)/www(kx,ky,kz,l)
+      enddo
+      enddo
+      enddo
+      enddo
+
+
+      if (nid.eq.0) write(6,*)'check energy'
+      do kz=1,2  ! Find uhat = \int sin(kx 2pi x) ux
+      do ky=1,2
+      do kx=1,2
+      do l=1,8 ! Integrate
+         if (nid.eq.0) write(6,*)kx,ky,kz,l,ucs(kx,ky,kz,l),
+     $   vcs(kx,ky,kz,l), wcs(kx,ky,kz,l)
+      enddo
+      enddo
+      enddo
+      enddo
 
       utot = 0
       do kz=1,2  ! Find uhat = \int sin(kx 2pi x) ux
@@ -340,7 +407,7 @@ c-----------------------------------------------------------------------
       enddo
 
 
-c      if(nid.eq.0) write(*,*) 'utot=', utot
+      if(nid.eq.0) write(*,*) 'utot=', utot
 
 c      if (istep <10) then
 c      utot = sqrt(utot)   ! YES? or NO?  (According to (19), no sqrt!)
@@ -349,12 +416,21 @@ c      else
 c      utot = utot
 c      endif
 
-      if(nid.eq.0) write(*,*) 'utot=', utot
-
       utot_inv = 1./utot
       call cmult(ucs,utot_inv,64)
       call cmult(vcs,utot_inv,64)
       call cmult(wcs,utot_inv,64)
+
+      do kz=1,2  ! Find uhat = \int sin(kx 2pi x) ux
+      do ky=1,2
+      do kx=1,2
+      do l=1,8 ! Integrate
+         if (nid.eq.0) write(6,*)kx,ky,kz,l,ucs(kx,ky,kz,l),
+     $   vcs(kx,ky,kz,l), wcs(kx,ky,kz,l)
+      enddo
+      enddo
+      enddo
+      enddo
 
       call opzero(fxx,fyy,fzz)
 
@@ -380,12 +456,12 @@ c      endif
             sy = sin(argy)
             sz = sin(argz)
             cs(1) = sx*sy*sz
-            cs(2) = -sx*sy*cz
-            cs(3) = -sx*cy*sz
-            cs(4) = -sx*cy*cz
-            cs(5) = -cx*sy*sz
-            cs(6) = -cx*sy*cz
-            cs(7) = -cx*cy*sz
+            cs(2) = sx*sy*cz
+            cs(3) = sx*cy*sz
+            cs(4) = sx*cy*cz
+            cs(5) = cx*sy*sz
+            cs(6) = cx*sy*cz
+            cs(7) = cx*cy*sz
             cs(8) = cx*cy*cz
 
             do l=1,8
@@ -398,24 +474,18 @@ c      endif
       enddo
       enddo
       enddo
+      ifxyo=.true.
+      call outpost(fxx,fyy,fzz,pr,t,'fff')
+      call exitt0
 
       return
       end
-
-
-
-
 c-----------------------------------------------------------------------
       subroutine my_diss
       include 'SIZE'
       include 'TOTAL'
 
-
-
       parameter (lt=lx1*ly1*lz1*lelt)
-
-
-
       common /myTKE1/dis1(lt)
       common /myTKE/ dufx(lt),dufy(lt),dufz(lt)
       common /myTKE/ dvfx(lt),dvfy(lt),dvfz(lt)
@@ -424,16 +494,9 @@ c-----------------------------------------------------------------------
       common /myTKE/ dvfx2(lt),dvfy2(lt),dvfz2(lt)
       common /myTKE/ dwfx2(lt),dwfy2(lt),dwfz2(lt)
 
-
-
-
-
       real negflag, Re1, dumhalf,tw1
       n = lx1*ly1*lz1*nelt
       n2= lx2*ly2*lz2*nelt
-
-
-
 
       negflag=-1.0
       dumhalf=0.5
@@ -465,24 +528,19 @@ c-----------------------------------------------------------------------
       call rzero (dwfz2,n)
 
 
-            call gradm1(dufx,dufy,dufz,vx)
-            call gradm1(dvfx,dvfy,dvfz,vy)
-            call gradm1(dwfx,dwfy,dwfz,vz)
+      call gradm1(dufx,dufy,dufz,vx)
+      call gradm1(dvfx,dvfy,dvfz,vy)
+      call gradm1(dwfx,dwfy,dwfz,vz)
 
-            call col3(dufx2,dufx,dufx,n)
-            call col3(dufy2,dufy,dufy,n)
-            call col3(dufz2,dufz,dufz,n)
-            call col3(dvfx2,dvfx,dvfx,n)
-            call col3(dvfy2,dvfy,dvfy,n)
-            call col3(dvfz2,dvfz,dvfz,n)
-            call col3(dwfx2,dwfx,dwfx,n)
-            call col3(dwfy2,dwfy,dwfy,n)
-            call col3(dwfz2,dwfz,dwfz,n)
-
-
-
-
-
+      call col3(dufx2,dufx,dufx,n)
+      call col3(dufy2,dufy,dufy,n)
+      call col3(dufz2,dufz,dufz,n)
+      call col3(dvfx2,dvfx,dvfx,n)
+      call col3(dvfy2,dvfy,dvfy,n)
+      call col3(dvfz2,dvfz,dvfz,n)
+      call col3(dwfx2,dwfx,dwfx,n)
+      call col3(dwfy2,dwfy,dwfy,n)
+      call col3(dwfz2,dwfz,dwfz,n)
 
       ! TKE Dissipation
       call add2(dis1,dufx2,n)
@@ -497,15 +555,7 @@ c-----------------------------------------------------------------------
       call cmult(dis1,Re1,n)
       call cmult(dis1,negflag,n)
 
-
-
-      
-
       call outpost(dis1,dis1,dis1,dis1, t,'dis')
-
-
-
-
       return
       end
 
