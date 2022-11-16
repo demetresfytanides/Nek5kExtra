@@ -104,9 +104,9 @@ c         rand1
 c      if (nid.eq.0) write(6,*)'check init', i,j,k,ux,uy,uz
        amp=1.0
        temp = 283.15 +rand2*amp
-      amp=0.001
+      amp=0.0001
       if(ifield.eq.3) then
-      temp=0.007644+rand*amp!   0.0061562!6.15e-03
+      temp=0.007644+rand1*amp!   0.0061562!6.15e-03
       endif
 
 
@@ -123,26 +123,26 @@ c-----------------------------------------------------------------------
 
       nt  = nx1*ny1*nz1*nelt
 
-      call hpts
+      call hpts()
 
-
+      call flush()
 c     if (istep.eq.0) then
 c      call prepost (.true.,'   ')
 c     endif
 
 c     ifxyo=.true.
-c     call my_forcing
+      call my_forcing
       
         
 c      if(nid.eq.0) write(*,*) "done forcing"
 
-c      call comp_S
+      call comp_S
 c      if(nid.eq.0) write(*,*) "done computing S"
 
-c      call report_prnt
+      call report_prnt
 c      if(nid.eq.0) write(*,*) "done reporting"
 
-c      call my_diss
+      call my_diss
 c      if(nid.eq.0) write(*,*) "done dissipation"
 c      call WaterBalance
 
@@ -197,31 +197,28 @@ c-----------------------------------------------------------------------
       include 'SIZE'
       include 'TOTAL'
 
+      integer, parameter:: Niii=6
+      integer, parameter, dimension(Niii)::
+     $ kiii =  (/-3,-2,-1,1,2,3/) !list of wavenumbers
 
 
-
-      integer, parameter:: Ni=3
-      integer, parameter, dimension(Ni)::
-     $ ki =  (/1,2,3/) !list of wavenumbers
-
-
-c      integer, parameter:: Ni=10
-c      integer, parameter, dimension(Ni):: 
-c     $ ki =  (/-5,-4,-3,-2,-1,1,2,3,4,5/) !list of wavenumbers
+c      integer, parameter:: Niii=10
+c      integer, parameter, dimension(Niii):: 
+c     $ kiii =  (/-5,-4,-3,-2,-1,1,2,3,4,5/) !list of wavenumbers
     
       common /mygeom/ xmn,xmx,ymn,ymx,zmn,zmx
       common /myforce/ fxx(lx1,ly1,lz1,lelt)
      $               , fyy(lx1,ly1,lz1,lelt)
      $               , fzz(lx1,ly1,lz1,lelt)
 
-      common /myuhat/  ucs(Ni,Ni,Ni,8),vcs(Ni,Ni,Ni,8)
-     $               , wcs(Ni,Ni,Ni,8)
+      common /myuhat/  ucs(Niii,Niii,Niii,8),vcs(Niii,Niii,Niii,8)
+     $               , wcs(Niii,Niii,Niii,8)
      $               , work(64),cs(8)
-      common /mynorm/  uuu(Ni,Ni,Ni,8),vvv(Ni,Ni,Ni,8)
-     $               , www(Ni,Ni,Ni,8)
+      common /mynorm/  uuu(Niii,Niii,Niii,8),vvv(Niii,Niii,Niii,8)
+     $               , www(Niii,Niii,Niii,8)
 
 
-c      integer, dimension(Ni):: ki
+c      integer, dimension(Niii):: kiii
       real xlen, ylen, zlen
       real eps, argx, argy, argz, cx, cy, cz
       real sx, sy, sz, x, y,z, u,v,w,b
@@ -244,21 +241,19 @@ c      integer, dimension(Ni):: ki
 
       eps = 0.003375!1.9/100./100.
 
-      !call rzero(ush,8*12) ! Zero the myuhat common block
 
 
-c     ki = (/-2, -1, 1,2/)
 
-      call   rzero(ucs, 8*Ni*Ni*Ni)
-      call   rzero(vcs, 8*Ni*Ni*Ni)
-      call   rzero(wcs, 8*Ni*Ni*Ni)
+      call   rzero(ucs, 8*Niii*Niii*Niii)
+      call   rzero(vcs, 8*Niii*Niii*Niii)
+      call   rzero(wcs, 8*Niii*Niii*Niii)
 
-      do kzi=1,Ni  ! Find uhat = \int sin(kx 2pi x) ux
-         kz = ki(kzi)
-      do kyi=1,Ni
-         ky = ki(kyi)
-      do kxi=1,Ni
-         kx = ki(kxi)
+      do kzi=1,Niii  ! Find uhat = \int sin(kx 2pi x) ux
+         kz = kiii(kzi)
+      do kyi=1,Niii
+         ky = kiii(kyi)
+      do kxi=1,Niii
+         kx = kiii(kxi)
          do i=1,n
 
             x=xm1(i,1,1,1)
@@ -292,9 +287,9 @@ c           v=0
 c           w=0
 
             do l=1,8 ! Integrate
-               ucs(kx,ky,kz,l) = ucs(kx,ky,kz,l) + cs(l)*u*b 
-               vcs(kx,ky,kz,l) = vcs(kx,ky,kz,l) + cs(l)*v*b
-               wcs(kx,ky,kz,l) = wcs(kx,ky,kz,l) + cs(l)*w*b
+               ucs(kxi,kyi,kzi,l) = ucs(kxi,kyi,kzi,l) + cs(l)*u*b 
+               vcs(kxi,kyi,kzi,l) = vcs(kxi,kyi,kzi,l) + cs(l)*v*b
+               wcs(kxi,kyi,kzi,l) = wcs(kxi,kyi,kzi,l) + cs(l)*w*b
             enddo
 
          enddo
@@ -305,18 +300,18 @@ c           w=0
 
 
 
-      call   rzero(uuu, 8*Ni*Ni*Ni)
-      call   rzero(vvv, 8*Ni*Ni*Ni)
-      call   rzero(www, 8*Ni*Ni*Ni)
+      call   rzero(uuu, 8*Niii*Niii*Niii)
+      call   rzero(vvv, 8*Niii*Niii*Niii)
+      call   rzero(www, 8*Niii*Niii*Niii)
 
 
 
-      do kzi=1,Ni  ! Find uhat = \int sin(kx 2pi x) ux
-         kz = ki(kzi)
-      do kyi=1,Ni
-         ky = ki(kyi)
-      do kxi=1,Ni
-         kx = ki(kxi)
+      do kzi=1,Niii  ! Find uhat = \int sin(kx 2pi x) ux
+         kz = kiii(kzi)
+      do kyi=1,Niii
+         ky = kiii(kyi)
+      do kxi=1,Niii
+         kx = kiii(kxi)
 
          do i=1,n
 
@@ -351,9 +346,9 @@ c            v=0
 c            w=0
 
             do l=1,8 ! Integrate
-               uuu(kx,ky,kz,l) = uuu(kx,ky,kz,l) + cs(l)*cs(l)*b 
-               vvv(kx,ky,kz,l) = vvv(kx,ky,kz,l) + cs(l)*cs(l)*b 
-               www(kx,ky,kz,l) = www(kx,ky,kz,l) + cs(l)*cs(l)*b 
+               uuu(kxi,kyi,kzi,l) = uuu(kxi,kyi,kzi,l) + cs(l)*cs(l)*b 
+               vvv(kxi,kyi,kzi,l) = vvv(kxi,kyi,kzi,l) + cs(l)*cs(l)*b 
+               www(kxi,kyi,kzi,l) = www(kxi,kyi,kzi,l) + cs(l)*cs(l)*b 
             enddo
 
          enddo
@@ -361,27 +356,27 @@ c            w=0
       enddo
       enddo
 
-      call gop(uuu,work,'+  ',Ni*Ni*Ni*8) ! Sum integrals across all processors
-      call gop(vvv,work,'+  ',Ni*Ni*Ni*8) ! Sum integrals across all processors
-      call gop(www,work,'+  ',Ni*Ni*Ni*8) ! Sum integrals across all processors
+      call gop(uuu,work,'+  ',Niii*Niii*Niii*8) ! Sum integrals across all processors
+      call gop(vvv,work,'+  ',Niii*Niii*Niii*8) ! Sum integrals across all processors
+      call gop(www,work,'+  ',Niii*Niii*Niii*8) ! Sum integrals across all processors
 
-      call gop(ucs,work,'+  ',Ni*Ni*Ni*8) ! Sum integrals across all processors
-      call gop(vcs,work,'+  ',Ni*Ni*Ni*8) ! Sum integrals across all processors
-      call gop(wcs,work,'+  ',Ni*Ni*Ni*8) ! Sum integrals across all processors
+      call gop(ucs,work,'+  ',Niii*Niii*Niii*8) ! Sum integrals across all processors
+      call gop(vcs,work,'+  ',Niii*Niii*Niii*8) ! Sum integrals across all processors
+      call gop(wcs,work,'+  ',Niii*Niii*Niii*8) ! Sum integrals across all processors
 
 
 
-      do kzi=1,2  ! Find uhat = \int sin(kx 2pi x) ux
-         kz = ki(kzi)
-      do kyi=1,2
-         ky = ki(kyi)
-      do kxi=1,2
-         kx = ki(kxi)
+      do kzi=1,Niii  ! Find uhat = \int sin(kx 2pi x) ux
+         kz = kiii(kzi)
+      do kyi=1,Niii
+         ky = kiii(kyi)
+      do kxi=1,Niii
+         kx = kiii(kxi)
 
       do l=1,8 ! Integrate
-      ucs(kx,ky,kz,l) = ucs(kx,ky,kz,l)/uuu(kx,ky,kz,l)
-      vcs(kx,ky,kz,l) = vcs(kx,ky,kz,l)/vvv(kx,ky,kz,l)
-      wcs(kx,ky,kz,l) = wcs(kx,ky,kz,l)/www(kx,ky,kz,l)
+      ucs(kxi,kyi,kzi,l) = ucs(kxi,kyi,kzi,l)/uuu(kxi,kyi,kzi,l)
+      vcs(kxi,kyi,kzi,l) = vcs(kxi,kyi,kzi,l)/vvv(kxi,kyi,kzi,l)
+      wcs(kxi,kyi,kzi,l) = wcs(kxi,kyi,kzi,l)/www(kxi,kyi,kzi,l)
       enddo
       enddo
       enddo
@@ -401,17 +396,17 @@ c      enddo
 c      enddo
 
       utot = 0
-      do kzi=1,2  ! Find uhat = \int sin(kx 2pi x) ux
-         kz = ki(kzi)
-      do kyi=1,2
-         ky = ki(kyi)
-      do kxi=1,2
-         kx = ki(kxi)
+      do kzi=1,Niii  ! Find uhat = \int sin(kx 2pi x) ux
+         kz = kiii(kzi)
+      do kyi=1,Niii
+         ky = kiii(kyi)
+      do kxi=1,Niii
+         kx = kiii(kxi)
 
       do l =1,8
-         utot = utot + ucs(kx,ky,kz,l)**2
-     $               + vcs(kx,ky,kz,l)**2
-     $               + wcs(kx,ky,kz,l)**2
+         utot = utot + ucs(kxi,kyi,kzi,l)**2
+     $               + vcs(kxi,kyi,kzi,l)**2
+     $               + wcs(kxi,kyi,kzi,l)**2
       enddo
       enddo
       enddo
@@ -428,9 +423,9 @@ c      utot = utot
 c      endif
 
       utot_inv = 1./utot
-      call cmult(ucs,utot_inv,Ni*Ni*Ni*8)
-      call cmult(vcs,utot_inv,Ni*Ni*Ni*8)
-      call cmult(wcs,utot_inv,Ni*Ni*Ni*8)
+      call cmult(ucs,utot_inv,Niii*Niii*Niii*8)
+      call cmult(vcs,utot_inv,Niii*Niii*Niii*8)
+      call cmult(wcs,utot_inv,Niii*Niii*Niii*8)
 
 c      do kz=1,2  ! Find uhat = \int sin(kx 2pi x) ux
 c      do ky=1,2
@@ -445,12 +440,12 @@ c      enddo
 
       call opzero(fxx,fyy,fzz)
 
-      do kzi=1,2  ! Find uhat = \int sin(kx 2pi x) ux
-         kz = ki(kzi)
-      do kyi=1,2
-         ky = ki(kyi)
-      do kxi=1,2
-         kx = ki(kxi)
+      do kzi=1,Niii  ! Find uhat = \int sin(kx 2pi x) ux
+         kz = kiii(kzi)
+      do kyi=1,Niii
+         ky = kiii(kyi)
+      do kxi=1,Niii
+         kx = kiii(kxi)
 
          do i=1,n
 
@@ -479,9 +474,9 @@ c      enddo
             cs(8) = cx*cy*cz
 
             do l=1,8
-              fxx(i,1,1,1) = fxx(i,1,1,1) + cs(l)*ucs(kx,ky,kz,l)*eps
-              fyy(i,1,1,1) = fyy(i,1,1,1) + cs(l)*vcs(kx,ky,kz,l)*eps
-              fzz(i,1,1,1) = fzz(i,1,1,1) + cs(l)*wcs(kx,ky,kz,l)*eps
+              fxx(i,1,1,1) = fxx(i,1,1,1) + cs(l)*ucs(kxi,kyi,kzi,l)*eps
+              fyy(i,1,1,1) = fyy(i,1,1,1) + cs(l)*vcs(kxi,kyi,kzi,l)*eps
+              fzz(i,1,1,1) = fzz(i,1,1,1) + cs(l)*wcs(kxi,kyi,kzi,l)*eps
             enddo
 
          enddo
@@ -570,7 +565,7 @@ c-----------------------------------------------------------------------
       call cmult(dis1,negflag,n)
 
 
-      epss = glsc2(dis1, bm1,nt) / volvm1
+      epss = glsc2(dis1, bm1,n) / volvm1
 
       if(nid.eq.0) write(*,*) "epsilon = ",time, epss
 
