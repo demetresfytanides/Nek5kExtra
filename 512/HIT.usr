@@ -1,0 +1,647 @@
+
+      subroutine uservp(i,j,k,eg) ! set variable properties
+      include 'SIZE'
+      include 'TOTAL'
+      include 'NEKUSE'
+
+      integer i,j,k,e,eg
+     
+c     e = gllel(eg)
+
+      udiff  = 0.0
+      utrans = 0.0
+
+      return
+      end
+c-----------------------------------------------------------------------
+      subroutine userf(i,j,k,eg) ! set acceleration term
+c
+c     Note: this is an acceleration term, NOT a force!
+c     Thus, ffx will subsequently be multiplied by rho(x,t).
+c
+      include 'SIZE'
+      include 'TOTAL'
+      include 'NEKUSE'
+
+      common /myforce/ fxx(lx1,ly1,lz1,lelt)
+     $               , fyy(lx1,ly1,lz1,lelt)
+     $               , fzz(lx1,ly1,lz1,lelt)
+
+      integer i,j,k,e,eg
+
+      e = gllel(eg)
+
+      ffx = fxx(i,j,k,e)
+      ffy = fyy(i,j,k,e)
+      ffz = fzz(i,j,k,e) 
+          !-9.81*(temp/283.15+0.608*ps(1))
+
+
+      return
+      end
+c-----------------------------------------------------------------------
+      subroutine userq(i,j,k,eg) ! set source term
+      include 'SIZE'
+      include 'TOTAL'
+      include 'NEKUSE'
+
+      integer i,j,k,e,eg
+
+c     e = gllel(eg)
+
+      qvol   = 0.0
+
+      return
+      end
+c-----------------------------------------------------------------------
+      subroutine userbc(i,j,k,f,eg) ! set up boundary conditions
+c     NOTE ::: This routine MAY NOT be called by every process
+      include 'SIZE'
+      include 'TOTAL'
+      include 'NEKUSE'
+
+      integer i,j,k,f,e,eg
+
+c     if (cbc(f,gllel(eg),ifield).eq.'v01')
+
+      ux   = 0.0
+      uy   = 0.0
+      uz   = 0.0
+      temp = 0.0
+
+
+      return
+      end
+c-----------------------------------------------------------------------
+      subroutine useric(i,j,k,eg) ! set up initial conditions
+      include 'SIZE'
+      include 'TOTAL'
+      include 'NEKUSE'
+      integer i,j,k,e,eg
+
+      real amp,big
+      ie = gllel(ieg)
+       amp=1.*sqrt(8e-2*8e-2*2/3)
+       big1 =2*pi*x/0.1
+       big2 =2*pi*y/0.1
+       big3 =2*pi*z/0.1
+
+
+       big =1.e7*eg+1.e8*i+1.e9*j+1.e10*k
+        rand1 = sin(big)
+        rand2 = sin(rand1*big)
+        rand3 = sin(rand2*big)
+
+c       rand1 = cos(big1)*sin(big2)*sin(big3)
+c       rand2 = cos(rand1*big1)*sin(big2)*sin(big3)
+c       rand3 = cos(rand2*big1)*sin(big2)*sin(big3)
+       ux =amp*rand1!sin(2*pi*x/0.1)*
+c     $   sin(2*pi*y/0.1)*sin(2*pi*z/0.1)
+
+c         rand1
+       uy = amp*rand2
+       uz = amp*rand3
+c      if (nid.eq.0) write(6,*)'check init', i,j,k,ux,uy,uz
+       amp=1.0
+       temp = 283.15 +rand2*amp
+      amp=0.0001
+      if(ifield.eq.3) then
+      temp=0.007644+rand1*amp!   0.0061562!6.15e-03
+      endif
+
+
+
+      return
+      end
+c-----------------------------------------------------------------------
+      subroutine userchk
+      include 'SIZE'
+      include 'TOTAL'
+      real Tmax, Tmin, psmax, psmin
+      parameter (lt=lx1*ly1*lz1*lelt)
+
+
+      nt  = nx1*ny1*nz1*nelt
+
+      call hpts()
+
+      call flush()
+      if (istep.eq.0) then
+       call prepost (.true.,'   ')
+      endif
+
+c     ifxyo=.true.
+      call my_forcing
+      
+        
+c      if(nid.eq.0) write(*,*) "done forcing"
+
+      call comp_S
+c      if(nid.eq.0) write(*,*) "done computing S"
+
+      call report_prnt
+c      if(nid.eq.0) write(*,*) "done reporting"
+
+      call my_diss
+c      if(nid.eq.0) write(*,*) "done dissipation"
+      call WaterBalance
+
+
+      return
+      end
+c-----------------------------------------------------------------------
+      subroutine userqtl ! Set thermal divergence
+
+      call userqtl_scig
+
+      return
+      end
+c-----------------------------------------------------------------------
+      subroutine usrdat   ! This routine to modify element vertices
+      include 'SIZE'
+      include 'TOTAL'
+
+      return
+      end
+c-----------------------------------------------------------------------
+      subroutine usrdat3
+      include 'SIZE'
+      include 'TOTAL'
+
+      return
+      end
+c-----------------------------------------------------------------------
+      subroutine usrdat2
+      include 'SIZE'
+      include 'TOTAL'
+
+      common /mygeom/ xmn,xmx,ymn,ymx,zmn,zmx
+
+      real xlen, ylen, zlen
+
+      common /nekmpi/ mid,mp,nekcomm,nekgroup,nekreal
+
+      integer icalld
+      save    icalld
+      data    icalld /0/
+
+      call domain_size(xmn,xmx,ymn,ymx,zmn,zmx)
+
+      xlen = xmx-xmn
+      ylen = ymx-ymn
+      zlen = zmx-zmn
+      return
+      end
+c-----------------------------------------------------------------------
+      subroutine my_forcing
+c      implicit none
+      include 'SIZE'
+      include 'TOTAL'
+
+c      integer, parameter:: Niii=6
+c      integer, parameter, dimension(Niii)::
+c     $ kiii =  (/-3,-2,-1,1, 2,3/) !list of wavenumbers
+
+
+      integer, parameter:: Niii=4
+      integer, parameter, dimension(Niii):: 
+     $ kiii =  (/-2,-1,1,2/) !list of wavenumbers
+    
+      real xmn,xmx,ymn,ymx,zmn,zmx
+      common /myforce/  fxx(lx1,ly1,lz1,lelt)
+     $               , fyy(lx1,ly1,lz1,lelt)
+     $               , fzz(lx1,ly1,lz1,lelt)
+
+      real  ucs(Niii,Niii,Niii,8),vcs(Niii,Niii,Niii,8)
+     $               , wcs(Niii,Niii,Niii,8)
+     $               , work(Niii*Niii*Niii*8),cs(8)
+      real  uuu(Niii,Niii,Niii,8),vvv(Niii,Niii,Niii,8)
+     $               , www(Niii,Niii,Niii,8)
+
+      integer itk
+      integer kx,ky,kz,kxi,kyi,kzi,l,n,i
+      real xlen, ylen, zlen
+      real eps, argx, argy, argz, cx, cy, cz
+      real sx, sy, sz, x, y,z, u,v,w,b
+      real utot,utot_inv
+      integer icalld
+      save    icalld
+      data    icalld /0/
+
+      if (icalld.eq.0) call domain_size(xmn,xmx,ymn,ymx,zmn,zmx)
+      icalld = 1
+
+
+    
+
+      xlen = xmx-xmn
+      ylen = ymx-ymn
+      zlen = zmx-zmn
+
+      n = lx1*ly1*lz1*nelv
+
+      eps = 0.003375!1.9/100./100.
+
+
+
+
+      call   rzero(ucs, 8*Niii*Niii*Niii)
+      call   rzero(vcs, 8*Niii*Niii*Niii)
+      call   rzero(wcs, 8*Niii*Niii*Niii)
+
+
+      call   rzero(uuu, 8*Niii*Niii*Niii)
+      call   rzero(vvv, 8*Niii*Niii*Niii)
+      call   rzero(www, 8*Niii*Niii*Niii)
+
+
+
+      do kzi=1,Niii  ! Find uhat = \int sin(kx 2pi x) ux
+         kz = kiii(kzi)
+      do kyi=1,Niii
+         ky = kiii(kyi)
+      do kxi=1,Niii
+         kx = kiii(kxi)
+         itk = 1
+         do i=1,n
+
+            x=xm1(i,1,1,1)
+            y=ym1(i,1,1,1)
+            z=zm1(i,1,1,1)
+            u=vx (i,1,1,1)
+            v=vy (i,1,1,1)
+            w=vz (i,1,1,1)
+            b=bm1(i,1,1,1)
+
+            argx = x*2*pi*kx/xlen
+            argy = y*2*pi*ky/ylen
+            argz = z*2*pi*kz/zlen
+
+            cx = cos(argx)
+            cy = cos(argy)
+            cz = cos(argz)
+            sx = sin(argx)
+            sy = sin(argy)
+            sz = sin(argz)
+            cs(1) = sx*sy*sz
+            cs(2) = sx*sy*cz
+            cs(3) = sx*cy*sz
+            cs(4) = sx*cy*cz
+            cs(5) = cx*sy*sz
+            cs(6) = cx*sy*cz
+            cs(7) = cx*cy*sz
+            cs(8) = cx*cy*cz
+c           u=cs(1)
+c           v=0
+c           w=0
+
+            do l=1,8 ! Integrate
+               ucs(kxi,kyi,kzi,l) = ucs(kxi,kyi,kzi,l) + cs(l)*u*b 
+               vcs(kxi,kyi,kzi,l) = vcs(kxi,kyi,kzi,l) + cs(l)*v*b
+               wcs(kxi,kyi,kzi,l) = wcs(kxi,kyi,kzi,l) + cs(l)*w*b
+               uuu(kxi,kyi,kzi,l) = uuu(kxi,kyi,kzi,l) + cs(l)*cs(l)*b
+               vvv(kxi,kyi,kzi,l) = vvv(kxi,kyi,kzi,l) + cs(l)*cs(l)*b
+               www(kxi,kyi,kzi,l) = www(kxi,kyi,kzi,l) + cs(l)*cs(l)*b
+           enddo
+ 
+
+c          if(nid.eq.0) then
+c          if(itk .eq. 1) then
+c         write(*,*)"Kxxxx", kxi, kx, kyi, ky, kzi, kz
+c          itk = 2
+c          endif
+c          endif
+         enddo
+      enddo
+      enddo
+      enddo
+
+
+
+
+
+      call gop(uuu,work,'+  ',Niii*Niii*Niii*8) ! Sum integrals across all processors
+      call gop(vvv,work,'+  ',Niii*Niii*Niii*8) ! Sum integrals across all processors
+      call gop(www,work,'+  ',Niii*Niii*Niii*8) ! Sum integrals across all processors
+
+      call gop(ucs,work,'+  ',Niii*Niii*Niii*8) ! Sum integrals across all processors
+      call gop(vcs,work,'+  ',Niii*Niii*Niii*8) ! Sum integrals across all processors
+      call gop(wcs,work,'+  ',Niii*Niii*Niii*8) ! Sum integrals across all processors
+
+
+
+      do kzi=1,Niii  ! Find uhat = \int sin(kx 2pi x) ux
+         kz = kiii(kzi)
+      do kyi=1,Niii
+         ky = kiii(kyi)
+      do kxi=1,Niii
+         kx = kiii(kxi)
+
+      do l=1,8 ! Integrate
+      ucs(kxi,kyi,kzi,l) = ucs(kxi,kyi,kzi,l)/uuu(kxi,kyi,kzi,l)
+      vcs(kxi,kyi,kzi,l) = vcs(kxi,kyi,kzi,l)/vvv(kxi,kyi,kzi,l)
+      wcs(kxi,kyi,kzi,l) = wcs(kxi,kyi,kzi,l)/www(kxi,kyi,kzi,l)
+      enddo
+      enddo
+      enddo
+      enddo
+
+
+c      if (nid.eq.0) write(6,*)'check energy'
+c      do kz=1,2  ! Find uhat = \int sin(kx 2pi x) ux
+c      do ky=1,2
+c      do kx=1,2
+c      do l=1,8 ! Integrate
+c         if (nid.eq.0) write(6,*)kx,ky,kz,l,ucs(kx,ky,kz,l),
+c     $   vcs(kx,ky,kz,l), wcs(kx,ky,kz,l)
+c      enddo
+c      enddo
+c      enddo
+c      enddo
+
+      utot = 0
+      do kzi=1,Niii  ! Find uhat = \int sin(kx 2pi x) ux
+         kz = kiii(kzi)
+      do kyi=1,Niii
+         ky = kiii(kyi)
+      do kxi=1,Niii
+         kx = kiii(kxi)
+
+      do l =1,8
+         utot = utot + ucs(kxi,kyi,kzi,l)**2
+     $               + vcs(kxi,kyi,kzi,l)**2
+     $               + wcs(kxi,kyi,kzi,l)**2
+      enddo
+      enddo
+      enddo
+      enddo
+
+
+      if(nid.eq.0) write(*,*) 'utot=', utot
+
+c      if (istep <10) then
+c      utot = sqrt(utot)   ! YES? or NO?  (According to (19), no sqrt!)
+
+c      else
+c      utot = utot
+c      endif
+
+      utot_inv = 1./utot
+      call cmult(ucs,utot_inv,Niii*Niii*Niii*8)
+      call cmult(vcs,utot_inv,Niii*Niii*Niii*8)
+      call cmult(wcs,utot_inv,Niii*Niii*Niii*8)
+
+c      do kz=1,2  ! Find uhat = \int sin(kx 2pi x) ux
+c      do ky=1,2
+c      do kx=1,2
+c      do l=1,8 ! Integrate
+c         if (nid.eq.0) write(6,*)kx,ky,kz,l,ucs(kx,ky,kz,l),
+c     $   vcs(kx,ky,kz,l), wcs(kx,ky,kz,l)
+c      enddo
+c      enddo
+c      enddo
+c      enddo
+
+      call opzero(fxx,fyy,fzz)
+
+      do kzi=1,Niii  ! Find uhat = \int sin(kx 2pi x) ux
+         kz = kiii(kzi)
+      do kyi=1,Niii
+         ky = kiii(kyi)
+      do kxi=1,Niii
+         kx = kiii(kxi)
+
+         do i=1,n
+
+            x=xm1(i,1,1,1)
+            y=ym1(i,1,1,1)
+            z=zm1(i,1,1,1)
+
+            argx = x*2*pi*kx/xlen
+            argy = y*2*pi*ky/ylen
+            argz = z*2*pi*kz/zlen
+
+
+            cx = cos(argx)
+            cy = cos(argy)
+            cz = cos(argz)
+            sx = sin(argx)
+            sy = sin(argy)
+            sz = sin(argz)
+            cs(1) = sx*sy*sz
+            cs(2) = sx*sy*cz
+            cs(3) = sx*cy*sz
+            cs(4) = sx*cy*cz
+            cs(5) = cx*sy*sz
+            cs(6) = cx*sy*cz
+            cs(7) = cx*cy*sz
+            cs(8) = cx*cy*cz
+
+            do l=1,8
+              fxx(i,1,1,1) = fxx(i,1,1,1) + cs(l)*ucs(kxi,kyi,kzi,l)*eps
+              fyy(i,1,1,1) = fyy(i,1,1,1) + cs(l)*vcs(kxi,kyi,kzi,l)*eps
+              fzz(i,1,1,1) = fzz(i,1,1,1) + cs(l)*wcs(kxi,kyi,kzi,l)*eps
+            enddo
+
+         enddo
+      enddo
+      enddo
+      enddo
+c      ifxyo=.true.
+c      call outpost(fxx,fyy,fzz,pr,t,'fff')
+c      call exitt0
+
+      return
+      end
+c-----------------------------------------------------------------------
+      subroutine my_diss
+      include 'SIZE'
+      include 'TOTAL'
+
+      parameter (lt=lx1*ly1*lz1*lelt)
+      common /myTKE1/dis1(lt)
+      common /myTKE/ dufx(lt),dufy(lt),dufz(lt)
+      common /myTKE/ dvfx(lt),dvfy(lt),dvfz(lt)
+      common /myTKE/ dwfx(lt),dwfy(lt),dwfz(lt)
+      common /myTKE/ dufx2(lt),dufy2(lt),dufz2(lt)
+      common /myTKE/ dvfx2(lt),dvfy2(lt),dvfz2(lt)
+      common /myTKE/ dwfx2(lt),dwfy2(lt),dwfz2(lt)
+
+      real negflag, Re1, dumhalf,tw1
+      n = lx1*ly1*lz1*nelt
+      n2= lx2*ly2*lz2*nelt
+
+      negflag=-1.0
+      dumhalf=0.5
+      tw1 = 2.0
+      Re1=param(2)
+       if (nid.eq.0) then
+      write(6,*) '1 over Reynolds number=', Re1
+       endif
+    
+      call rzero (dis1,n)
+
+      call rzero (dufx,n)
+      call rzero (dufy,n)
+      call rzero (dufz,n)
+      call rzero (dvfx,n)
+      call rzero (dvfy,n)
+      call rzero (dvfz,n)
+      call rzero (dwfx,n)
+      call rzero (dwfy,n)
+      call rzero (dwfz,n)
+      call rzero (dufx2,n)
+      call rzero (dufy2,n)
+      call rzero (dufz2,n)
+      call rzero (dvfx2,n)
+      call rzero (dvfy2,n)
+      call rzero (dvfz2,n)
+      call rzero (dwfx2,n)
+      call rzero (dwfy2,n)
+      call rzero (dwfz2,n)
+
+
+      call gradm1(dufx,dufy,dufz,vx)
+      call gradm1(dvfx,dvfy,dvfz,vy)
+      call gradm1(dwfx,dwfy,dwfz,vz)
+
+      call col3(dufx2,dufx,dufx,n)
+      call col3(dufy2,dufy,dufy,n)
+      call col3(dufz2,dufz,dufz,n)
+      call col3(dvfx2,dvfx,dvfx,n)
+      call col3(dvfy2,dvfy,dvfy,n)
+      call col3(dvfz2,dvfz,dvfz,n)
+      call col3(dwfx2,dwfx,dwfx,n)
+      call col3(dwfy2,dwfy,dwfy,n)
+      call col3(dwfz2,dwfz,dwfz,n)
+
+      ! TKE Dissipation
+      call add2(dis1,dufx2,n)
+      call add2(dis1,dufy2,n)
+      call add2(dis1,dufz2,n)
+      call add2(dis1,dvfx2,n)
+      call add2(dis1,dvfy2,n)
+      call add2(dis1,dvfz2,n)
+      call add2(dis1,dwfx2,n)
+      call add2(dis1,dwfy2,n)
+      call add2(dis1,dwfz2,n)
+      call cmult(dis1,Re1,n)
+      call cmult(dis1,negflag,n)
+
+
+      epss = glsc2(dis1, bm1,n) / volvm1
+
+      if(nid.eq.0) write(*,*) "epsilon = ",time, epss
+
+
+
+c      call outpost(dis1,dis1,dis1,dis1, t,'dis')
+      return
+      end
+
+
+c--------------------------
+
+      subroutine report_prnt
+      include 'SIZE'
+      include 'TOTAL'
+
+      real vxa, vya, vza, vx2,xy2,xz2
+      real tkeota, A,a1,tea, te2, epss,te2rms
+      real Tmax, Tmin, psmax, psmin
+      parameter (lt=lx1*ly1*lz1*lelt)
+
+      common /myTKE1/dis1(lt), trms(lt)
+
+      nt  = nx1*ny1*nz1*nelt
+
+      call rzero(dis1,nt)
+      call rzero(trms,nt)
+
+
+      vxa = glsc2(vx,   bm1,nt) / volvm1        ! volume-average
+      vya = glsc2(vy,   bm1,nt) / volvm1
+      vza = glsc2(vz,   bm1,nt) / volvm1
+      vx2 = glsc3(vx,vx,bm1,nt) / volvm1
+      vy2 = glsc3(vy,vy,bm1,nt) / volvm1
+      vz2 = glsc3(vz,vz,bm1,nt) / volvm1
+      tea = glsc2(t ,bm1,nt) / volvm1
+      te2 = glsc3(t,t,bm1,nt) / volvm1
+
+      tketa = 0.5*(vx2+vy2+vz2) !tke(t)
+      if(nid.eq.0) write(*,*) 'tke_t=', time,tketa,volvm1
+      if(nid.eq.0)write(*,*)   'tt=', (vxa*vxa+vya*vya+vza*vza)/2
+      if(nid.eq.0) write(*,*) "u_rms=", time,sqrt(tketa*2./3.)
+      if(nid.eq.0) write(*,*) "Tmean=", time,tea
+      if(nid.eq.0) write(*,*) "T_rms=", time,te2-tea*tea
+      tea = glsc2(t(1,1,1,1,4) ,bm1,nt) / volvm1
+      te2 = glsc3(t(1,1,1,1,4),t(1,1,1,1,4),bm1,nt) / volvm1
+      if(nid.eq.0) write(*,*) "Smean=",time,tea
+      if(nid.eq.0) write(*,*) "S_rms=", time,te2-tea*tea
+      tea = glsc2(t(1,1,1,1,5) ,bm1,nt) / volvm1
+      te2 = glsc3(t(1,1,1,1,5),t(1,1,1,1,5),bm1,nt) / volvm1
+      if(nid.eq.0) write(*,*) "Qmean=",time,tea
+      if(nid.eq.0) write(*,*) "Q_rms=", time,te2-tea*tea
+
+
+
+      return
+      end
+      
+c-----------------------------------------------------------------------
+
+c-----------------------------------------------------------------------
+      subroutine comp_S
+      include 'SIZE'
+      include 'TOTAL'
+
+      real es,qs,qv patm1,sati,t11
+      integer icalld
+      save    icalld
+      data    icalld /0/
+
+      patm1=101325.0 !Pa
+      n = lx1*ly1*lz1*nelv
+      do i =1,n
+            x=xm1(i,1,1,1)
+            y=ym1(i,1,1,1)
+            z=zm1(i,1,1,1)
+            u=vx (i,1,1,1)
+            v=vy (i,1,1,1)
+            w=vz (i,1,1,1)
+            b=bm1(i,1,1,1)
+            t11=t(i,1,1,1,1)
+            es=2.53e11*exp(-5.42e3/t11)
+            qs=0.622*es/(patm1+es)
+            qv=t(i,1,1,1,2)
+       t(i,1,1,1,3)=es
+       t(i,1,1,1,4)=qs
+       t(i,1,1,1,5)=qv/qs-1.
+
+
+      enddo
+
+
+      return
+      end
+
+c---------------------------------------------------------
+c-----------------------------------------------------------------------
+      subroutine WaterBalance
+      include 'SIZE'
+      include 'TOTAL'
+
+      real waterMv, denn
+      nt  = nx1*ny1*nz1*nelt
+
+       denn=param(1)
+       if (nid.eq.0) then
+       write(6,*) 'density=', denn
+       endif
+
+       waterMv = glsc2(t(1,1,1,1,5) ,bm1,nt)*denn 
+       if(nid.eq.0) write(*,*) "Vapor Moisture=", time,waterMv
+
+
+      return
+      end
